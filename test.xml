@@ -1,0 +1,14 @@
+<linked-list>
+  <ch.eleveneye.hs485.config.Module>
+    <name>HS485 IO127</name>
+    <hwVer>
+      <hwType>7</hwType>
+      <hwVer>0</hwVer>
+    </hwVer>
+    <swVer>
+      <majorVersion>1</majorVersion>
+      <minorVersion>0</minorVersion>
+    </swVer>
+    <variable/>
+  </ch.eleveneye.hs485.config.Module>
+</linked-list>

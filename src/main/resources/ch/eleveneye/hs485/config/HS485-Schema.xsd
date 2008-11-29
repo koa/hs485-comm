@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema targetNamespace="http://www.eleveneye.ch/HS485-Schema"
+	elementFormDefault="qualified" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://www.eleveneye.ch/HS485-Schema">
+
+	<element name="hs485" type="tns:hs485ComplexType"></element>
+
+	<complexType name="hs485ComplexType">
+		<sequence>
+			<element name="module" type="tns:moduleType"
+				maxOccurs="unbounded" minOccurs="0">
+			</element>
+		</sequence>
+	</complexType>
+
+	<complexType name="moduleType">
+		<sequence>
+			<element name="input" type="tns:inputType"
+				maxOccurs="unbounded" minOccurs="0">
+			</element>
+			<element name="output" type="tns:outputType"
+				maxOccurs="unbounded" minOccurs="0">
+			</element>
+			<element name="variable" type="tns:variableType"
+				maxOccurs="unbounded" minOccurs="0">
+			</element>
+		</sequence>
+		<attribute name="hw-ver" type="int" use="required"></attribute>
+		<attribute name="sw-ver" type="int" use="required"></attribute>
+		<attribute name="title" type="string" use="required"></attribute>
+		<attribute name="type" type="int" use="required"></attribute>
+		<attribute name="eeprom-size" type="int" use="required"></attribute>
+		<attribute name="last-change" type="int" use="optional"></attribute>
+	</complexType>
+
+	<complexType name="inputType"></complexType>
+
+	<complexType name="outputType"></complexType>
+
+	<complexType name="variableType">
+		<sequence>
+			<element name="description" type="string" maxOccurs="1"
+				minOccurs="0">
+			</element>
+			<choice>
+				<element name="number" type="tns:numberType"></element>
+				<element name="choice" type="tns:choiceType"></element>
+				<element name="array" type="tns:arrayType"></element>
+
+			</choice>
+		</sequence>
+		<attribute name="offset" type="string" use="required"></attribute>
+		<attribute name="reload" type="boolean" use="optional"></attribute>
+		<attribute name="name" type="string" use="required"></attribute>
+	</complexType>
+
+	<complexType name="choiceType">
+		<sequence>
+			<element name="choice-entry" type="tns:choiceEntryType" maxOccurs="unbounded" minOccurs="1"></element>
+			<element name="description" type="string" maxOccurs="1" minOccurs="0"></element>
+		</sequence>
+		<attribute name="length" type="int" use="required"></attribute>
+		<attribute name="default" type="string" use="optional"></attribute>
+	</complexType>
+
+	<complexType name="numberType">
+		<attribute name="length" type="int" use="required"></attribute>
+		<attribute name="min-value" type="int" use="optional"></attribute>
+		<attribute name="max-value" type="int" use="optional"></attribute>
+		<attribute name="default" type="int" use="optional"></attribute>
+		<attribute name="pattern" type="string" use="optional"></attribute>
+	</complexType>
+
+	<complexType name="arrayType">
+		<sequence>
+			<element name="entry" type="tns:variableType"></element>
+		</sequence>
+		<attribute name="count" type="string" use="required"></attribute>
+		<attribute name="element-size" type="string" use="required"></attribute>
+	</complexType>
+
+	<complexType name="choiceEntryType">
+		<sequence>
+			<element name="description" type="string" maxOccurs="1" minOccurs="0"></element>
+		</sequence>
+		<attribute name="value" type="int" use="required"></attribute>
+		<attribute name="name" type="string" use="required"></attribute>
+	</complexType>
+</schema>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hs485 xmlns="http://www.eleveneye.ch/HS485-Schema"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.example.org/HS485-Schema HS485-Schema.xsd ">
+	<module sw-ver="200" hw-ver="1" type="0" title="HS485D"
+		eeprom-size="512" class="ch.eleveneye.hs485.device.HS485D">
+		<variable name="keymode" offset="0" reload="true">
+			<choice length="1" default="split-keys">
+				<choice-entry value="0" name="split-keys">
+					<description>Zwei einfache Taster</description>
+				</choice-entry>
+				<choice-entry value="1" name="join-keys">
+					<description>Ein Taster Hoch/Runter</description>
+				</choice-entry>
+				<description>
+					Das Modul HS485D besitzt zwei Eingänge. Wird die
+					Option "Zwei einfache Taster" gewählt, könnnen diese
+					als zwei getrennt geschaltete Eingänge genutzt
+					werden. Diese Eingänge können mit den Ausgängen
+					anderer Module verknüpft werden.
+
+					Wird die Option "Ein Taster Hoch/Runter" ausgewählt,
+					so kann mit Eingang T2 ein Ausgang ausgeschaltet,
+					bzw. runtergefahren und mit Eingang T1 ein Ausgang
+					eingeschaltet, bzw. hochgefahren werden. Die beiden
+					Tastereingänge gehören also logisch zusammen.
+				</description>
+			</choice>
+		</variable>
+		<variable name="input-type" offset="0x12" reload="true">
+			<array element-size="1" count="2">
+				<entry name="type" offset="0x00">
+					<choice length="1">
+						<choice-entry name="key-with-led" value="255">
+							<description>
+								Taster-Eingang mit LED
+							</description>
+						</choice-entry>
+						<choice-entry name="key-without-led"
+							value="1">
+							<description>
+								Taster-Eingang ohne LED
+							</description>
+						</choice-entry>
+						<choice-entry name="switch-with-led"
+							value="2">
+							<description>
+								Schalter-Eingang mit LED
+							</description>
+						</choice-entry>
+						<choice-entry name="switch-without-led"
+							value="3">
+							<description>
+								Schalter-Eingang ohne LED
+							</description>
+						</choice-entry>
+					</choice>
+				</entry>
+			</array>
+		</variable>
+	</module>
+</hs485>
