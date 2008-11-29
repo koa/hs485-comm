@@ -7,9 +7,7 @@
 	<version>0.5.1-SNAPSHOT</version>
 	<description>Kommunikations-Library für HS485</description>
 	<scm>
-		<connection>
-			scm:hg:https://www.berg-turbenthal.ch/hg/HS485/file/tip/HS485-Comm/
-		</connection>
+		<connection>scm:git://neptun.berg.local/git/HS485</connection>
 	</scm>
 	<build>
 		<resources>
