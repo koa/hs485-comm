@@ -7,7 +7,7 @@ public class HardwareError extends IOException {
 	/**
 	 * 
 	 */
-	private static final long	serialVersionUID	= -2121816477392195032L;
+	private static final long serialVersionUID = -2121816477392195032L;
 
 	public HardwareError() {
 		super();

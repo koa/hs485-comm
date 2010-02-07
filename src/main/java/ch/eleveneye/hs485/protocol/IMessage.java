@@ -9,17 +9,17 @@ public class IMessage extends HS485Message {
 		UNKNOWN, TOGGLE, DOWN, UP
 	}
 
-	protected byte[]	data;
+	protected byte[] data;
 
-	protected boolean	duplicatePacket;
+	protected boolean duplicatePacket;
 
-	protected boolean	lastPacket	= true;
+	protected boolean lastPacket = true;
 
-	protected byte	  receiveNumber;
+	protected byte receiveNumber;
 
-	protected byte	  senderNumber;
+	protected byte senderNumber;
 
-	protected boolean	sync;
+	protected boolean sync;
 
 	public byte[] getData() {
 		return data;
@@ -70,7 +70,8 @@ public class IMessage extends HS485Message {
 	}
 
 	public KeyEventType readKeyEventType() {
-		if (data.length < 4) return KeyEventType.UNKNOWN;
+		if (data.length < 4)
+			return KeyEventType.UNKNOWN;
 		return decodeEventType(data[3]);
 	}
 
@@ -88,7 +89,8 @@ public class IMessage extends HS485Message {
 	}
 
 	public KeyType readKeyType() {
-		if (data.length < 4) return KeyType.UNKNOWN;
+		if (data.length < 4)
+			return KeyType.UNKNOWN;
 		return decodeKeyType(data[3]);
 	}
 
@@ -106,7 +108,8 @@ public class IMessage extends HS485Message {
 	}
 
 	public byte readKeyPressCount() {
-		if (data.length < 4) return 0;
+		if (data.length < 4)
+			return 0;
 		return decodeKeyPressCount(data[3]);
 	}
 

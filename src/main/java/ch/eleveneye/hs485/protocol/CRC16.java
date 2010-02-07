@@ -1,11 +1,11 @@
 package ch.eleveneye.hs485.protocol;
 
 public class CRC16 {
-	protected static final int	CRC16_POLYGON	= 0x1002; // Konstante zur
+	protected static final int CRC16_POLYGON = 0x1002; // Konstante zur
 
 	// Berechnung
 
-	protected int	             currentCRC	    = 0;
+	protected int currentCRC = 0;
 
 	public void shift(int w) {
 		byte q;

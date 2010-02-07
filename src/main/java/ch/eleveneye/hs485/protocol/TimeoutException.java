@@ -3,7 +3,7 @@ package ch.eleveneye.hs485.protocol;
 import java.io.IOException;
 
 public class TimeoutException extends IOException {
-	private static final long	serialVersionUID	= 7497345067904626222L;
+	private static final long serialVersionUID = 7497345067904626222L;
 
 	public TimeoutException() {
 		super();

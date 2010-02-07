@@ -1,7 +1,7 @@
 package ch.eleveneye.hs485.protocol;
 
 public class ACKMessage extends HS485Message {
-	byte	receiveNumber;
+	byte receiveNumber;
 
 	public byte getReceiveNumber() {
 		return receiveNumber;

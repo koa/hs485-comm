@@ -1,7 +1,7 @@
 package ch.eleveneye.hs485.protocol;
 
 public class DiscoveryMessage extends HS485Message {
-	byte	maskCount;
+	byte maskCount;
 
 	public byte getMaskCount() {
 		return maskCount;

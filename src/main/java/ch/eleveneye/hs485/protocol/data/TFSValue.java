@@ -3,9 +3,9 @@ package ch.eleveneye.hs485.protocol.data;
 import java.text.NumberFormat;
 
 public class TFSValue {
-	int	temperatur;
+	int temperatur;
 
-	int	humidity;
+	int humidity;
 
 	public TFSValue() {
 
@@ -18,12 +18,17 @@ public class TFSValue {
 
 	@Override
 	public boolean equals(final Object obj) {
-		if (this == obj) return true;
-		if (obj == null) return false;
-		if (getClass() != obj.getClass()) return false;
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
 		final TFSValue other = (TFSValue) obj;
-		if (humidity != other.humidity) return false;
-		if (temperatur != other.temperatur) return false;
+		if (humidity != other.humidity)
+			return false;
+		if (temperatur != other.temperatur)
+			return false;
 		return true;
 	}
 
@@ -59,6 +64,6 @@ public class TFSValue {
 	@Override
 	public String toString() {
 		return "Temp: " + NumberFormat.getInstance().format(readTemperatur())
-		    + "°C, Hum: " + getHumidity() + "%";
+				+ "°C, Hum: " + getHumidity() + "%";
 	}
 }

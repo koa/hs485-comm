@@ -2,9 +2,9 @@ package ch.eleveneye.hs485.protocol;
 
 public abstract class IntByteIndex {
 
-	protected byte	byteValue;
+	protected byte byteValue;
 
-	protected int	 intValue;
+	protected int intValue;
 
 	public IntByteIndex(int intValue, byte byteValue) {
 		this.intValue = intValue;
@@ -22,12 +22,17 @@ public abstract class IntByteIndex {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj) return true;
-		if (obj == null) return false;
-		if (getClass() != obj.getClass()) return false;
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
 		final IntByteIndex other = (IntByteIndex) obj;
-		if (byteValue != other.byteValue) return false;
-		if (intValue != other.intValue) return false;
+		if (byteValue != other.byteValue)
+			return false;
+		if (intValue != other.intValue)
+			return false;
 		return true;
 	}
 }

@@ -1,9 +1,9 @@
 package ch.eleveneye.hs485.protocol.data;
 
 public class SwVer {
-	byte	majorVersion;
+	byte majorVersion;
 
-	byte	minorVersion;
+	byte minorVersion;
 
 	public SwVer(byte majorVersion, byte minorVersion) {
 		super();
@@ -31,11 +31,15 @@ public class SwVer {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj) return true;
-		if (getClass() != obj.getClass()) return false;
+		if (this == obj)
+			return true;
+		if (getClass() != obj.getClass())
+			return false;
 		final SwVer other = (SwVer) obj;
-		if (majorVersion != other.majorVersion) return false;
-		if (minorVersion != other.minorVersion) return false;
+		if (majorVersion != other.majorVersion)
+			return false;
+		if (minorVersion != other.minorVersion)
+			return false;
 		return true;
 	}
 }

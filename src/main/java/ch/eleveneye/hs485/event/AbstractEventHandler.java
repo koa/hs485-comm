@@ -4,13 +4,13 @@ import java.io.IOException;
 
 public abstract class AbstractEventHandler implements EventHandler {
 
-	boolean	pressFired	 = false;
+	boolean pressFired = false;
 
-	boolean	releaseFired	= false;
+	boolean releaseFired = false;
 
-	boolean	holdFired	   = false;
+	boolean holdFired = false;
 
-	byte	  lastCounter	 = 4;
+	byte lastCounter = 4;
 
 	/*
 	 * (non-Javadoc)

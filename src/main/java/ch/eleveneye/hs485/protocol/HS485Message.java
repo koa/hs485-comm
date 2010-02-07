@@ -1,11 +1,11 @@
 package ch.eleveneye.hs485.protocol;
 
 public abstract class HS485Message {
-	protected boolean	hasSourceAddr;
+	protected boolean hasSourceAddr;
 
-	protected int	    sourceAddress;
+	protected int sourceAddress;
 
-	protected int	    targetAddress;
+	protected int targetAddress;
 
 	public boolean hasSourceAddr() {
 		return hasSourceAddr;
