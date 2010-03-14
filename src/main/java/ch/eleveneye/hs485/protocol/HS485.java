@@ -1,10 +1,17 @@
 package ch.eleveneye.hs485.protocol;
 
+import gnu.io.RXTXCommDriver;
+import gnu.io.RXTXPort;
+import gnu.io.SerialPort;
+import gnu.io.UnsupportedCommOperationException;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+
+import org.apache.log4j.Logger;
 
 import ch.eleveneye.hs485.event.EventHandler;
 import ch.eleveneye.hs485.protocol.data.HwVer;
@@ -14,7 +21,7 @@ import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 
 public class HS485 {
 	class AckRunnable implements Runnable {
-		IMessage origMessage;
+		IMessage	origMessage;
 
 		public AckRunnable(final IMessage origMessage) {
 			this.origMessage = origMessage;
@@ -51,32 +58,19 @@ public class HS485 {
 				if (iMsg.isSync()) {
 					final byte[] data = iMsg.getData();
 					if (data.length == 4 && data[0] == 'K') {
-						final EventIndex handlerIndex = new EventIndex(packet
-								.getTargetAddress(), data[2]);
+						final EventIndex handlerIndex = new EventIndex(packet.getTargetAddress(), data[2]);
 						synchronized (keyEventHandlers) {
-							final EventHandler handler = keyEventHandlers
-									.get(handlerIndex);
+							final EventHandler handler = keyEventHandlers.get(handlerIndex);
 							if (handler == null) {
 								if (packet.getTargetAddress() == ownAddress) {
 									doAck(iMsg);
 									new Thread(new Runnable() {
 										public void run() {
 											try {
-												unRegisterEventAt(packet
-														.getSourceAddress(),
-														data[1], data[2]);
+												unRegisterEventAt(packet.getSourceAddress(), data[1], data[2]);
 											} catch (final IOException e) {
-												log
-														.warn(
-																"Konnte Event nicht deregistrieren: "
-																		+ Integer
-																				.toHexString(packet
-																						.getSourceAddress())
-																		+ ","
-																		+ data[1]
-																		+ ","
-																		+ data[2],
-																e);
+												log.warn("Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + ","
+														+ data[2], e);
 											}
 										}
 									}).start();
@@ -89,10 +83,7 @@ public class HS485 {
 										try {
 											handler.doEvent(eventByte);
 										} catch (final IOException e) {
-											log
-													.error(
-															"Fehler bei der Eventverarbeitung",
-															e);
+											log.error("Fehler bei der Eventverarbeitung", e);
 										}
 									}
 								}).start();
@@ -101,12 +92,10 @@ public class HS485 {
 					}
 				} else if (packet.getTargetAddress() == ownAddress) {
 					synchronized (expectedReceiveQueue) {
-						LinkedList<IMessage> queue = expectedReceiveQueue
-								.get(iMsg.getSourceAddress());
+						LinkedList<IMessage> queue = expectedReceiveQueue.get(iMsg.getSourceAddress());
 						if (queue == null) {
 							queue = new LinkedList<IMessage>();
-							expectedReceiveQueue.put(iMsg.getSourceAddress(),
-									queue);
+							expectedReceiveQueue.put(iMsg.getSourceAddress(), queue);
 						}
 						queue.addLast(iMsg);
 					}
@@ -118,19 +107,16 @@ public class HS485 {
 						}
 					}).start();
 				}
-			} else if (packet instanceof ACKMessage
-					&& packet.getTargetAddress() == ownAddress) {
+			} else if (packet instanceof ACKMessage && packet.getTargetAddress() == ownAddress) {
 				final ACKMessage ackPacket = (ACKMessage) packet; // handle
 				// ack-Message
-				final AckIndex index = new AckIndex(ackPacket
-						.getSourceAddress(), ackPacket.getReceiveNumber());
+				final AckIndex index = new AckIndex(ackPacket.getSourceAddress(), ackPacket.getReceiveNumber());
 				synchronized (receivedAckCount) {
 					final Integer countBefore = receivedAckCount.get(index);
-					if (countBefore == null) {
+					if (countBefore == null)
 						receivedAckCount.put(index, 1);
-					} else {
+					else
 						receivedAckCount.put(index, countBefore + 1);
-					}
 				}
 				new Thread(new Runnable() {
 					public void run() {
@@ -147,46 +133,44 @@ public class HS485 {
 		}
 	}
 
-	private static Logger log = Logger.getLogger(HS485.class);
+	protected static final int												INC_REPEAT_COUNT			= 8;
 
-	private static final int PACKET_WAIT_TIME = 200;
+	private static Logger															log										= Logger.getLogger(HS485.class);
 
-	protected static final int PACKET_REPEAT_COUNT = 4;
+	protected static final int												PACKET_REPEAT_COUNT		= 4;
 
-	protected static final int INC_REPEAT_COUNT = 8;
+	private static final int													PACKET_WAIT_TIME			= 200;
 
-	protected List<Integer> clientList;
+	protected List<Integer>														clientList;
 
-	Object clientListMutex = new Object();
+	Object																						clientListMutex				= new Object();
 
-	private PacketDecoder decoder;
+	private RXTXPort																	commPort;
 
-	private PacketEncoder encoder;
+	private int																				currentSenderNumber;
 
-	protected HashMap<Integer, LinkedList<IMessage>> expectedReceiveQueue;
+	private PacketDecoder															decoder;
 
-	protected HashMap<EventIndex, EventHandler> keyEventHandlers;
+	private PacketEncoder															encoder;
 
-	long lastClientListUpdate = 0;
+	protected HashMap<Integer, LinkedList<IMessage>>	expectedReceiveQueue;
 
-	int ownAddress;
+	protected HashMap<EventIndex, EventHandler>				keyEventHandlers;
 
-	Object readClientListMutex = new Object();
+	long																							lastClientListUpdate	= 0;
 
-	protected HashMap<AckIndex, Integer> receivedAckCount;
+	int																								ownAddress;
 
-	private RXTXPort commPort;
+	Object																						readClientListMutex		= new Object();
 
-	private int currentSenderNumber;
+	protected HashMap<AckIndex, Integer>							receivedAckCount;
 
-	public HS485(final String port, final int myAddress)
-			throws UnsupportedCommOperationException, IOException {
+	public HS485(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
 		init(port, myAddress);
 		currentSenderNumber = 0;
 	}
 
-	public void addKeyHandler(final int targetAddress, final byte actorNr,
-			final EventHandler handler) throws IOException {
+	public void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException {
 		synchronized (keyEventHandlers) {
 			final EventIndex eventIndex = new EventIndex(targetAddress, actorNr);
 			keyEventHandlers.put(eventIndex, handler);
@@ -200,8 +184,7 @@ public class HS485 {
 		commPort.close();
 	}
 
-	private void init(final String port, final int myAddress)
-			throws UnsupportedCommOperationException, IOException {
+	private void init(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
 		ownAddress = myAddress;
 		receivedAckCount = new HashMap<AckIndex, Integer>();
 		expectedReceiveQueue = new HashMap<Integer, LinkedList<IMessage>>();
@@ -216,10 +199,8 @@ public class HS485 {
 		}
 		commPort = (RXTXPort) commDriver.getCommPort(port, 1);
 		if (commPort == null)
-			throw new IOException("Auf Gerät " + port
-					+ " kann nicht zugegriffen werden");
-		commPort.setSerialPortParams(19200, SerialPort.DATABITS_8,
-				SerialPort.STOPBITS_1, SerialPort.PARITY_EVEN);
+			throw new IOException("Auf Gerät " + port + " kann nicht zugegriffen werden");
+		commPort.setSerialPortParams(19200, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_EVEN);
 		commPort.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
 
 		decoder = new PacketDecoder(commPort.getInputStream());
@@ -231,19 +212,16 @@ public class HS485 {
 		synchronized (readClientListMutex) {
 
 			synchronized (clientListMutex) {
-				if (lastClientListUpdate + 60 * 1000 > System
-						.currentTimeMillis()) {
+				if (lastClientListUpdate + 60 * 1000 > System.currentTimeMillis())
 					return clientList;
-				} else {
+				else
 					clientList = null;
-				}
 			}
 			encoder.initiateDiscovering();
 			while (true) {
 				synchronized (clientListMutex) {
-					if (clientList != null) {
+					if (clientList != null)
 						return clientList;
-					}
 				}
 				try {
 					Thread.sleep(100);
@@ -271,8 +249,7 @@ public class HS485 {
 		return msg;
 	}
 
-	public byte readActor(final int moduleAddress, final byte actor)
-			throws IOException {
+	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
 		final IMessage msg = prepareIMessage(moduleAddress);
 		final byte[] data = new byte[] { 'S', actor };
 		msg.setData(data);
@@ -284,12 +261,9 @@ public class HS485 {
 
 	}
 
-	private void readEEPROMRaw(final int address, final int offset,
-			final byte[] data, final int dataOffset, final int dataCount)
-			throws IOException {
+	private void readEEPROMRaw(final int address, final int offset, final byte[] data, final int dataOffset, final int dataCount) throws IOException {
 		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'R', (byte) ((offset >> 8) & 0xff),
-				(byte) (offset & 0xff), (byte) (dataCount & 0xff) });
+		msg.setData(new byte[] { 'R', (byte) (offset >> 8 & 0xff), (byte) (offset & 0xff), (byte) (dataCount & 0xff) });
 		final IMessage answer = sendAndWaitForAnswer(msg);
 		sendAck(answer);
 		assert answer.getData().length == dataCount;
@@ -313,12 +287,10 @@ public class HS485 {
 		sendAck(answer);
 
 		final byte[] answerData = answer.getData();
-		return (answerData[0] & 0xff) << 24 | (answerData[1] & 0xff) << 16
-				| (answerData[2] & 0xff) << 8 | (answerData[3] & 0xff);
+		return (answerData[0] & 0xff) << 24 | (answerData[1] & 0xff) << 16 | (answerData[2] & 0xff) << 8 | answerData[3] & 0xff;
 	}
 
-	public byte[] readModuleEEPROM(final int address, final int count)
-			throws IOException {
+	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
 		final byte[] ret = new byte[count];
 		int partOffset = 0;
 		while (partOffset < count) {
@@ -354,15 +326,12 @@ public class HS485 {
 
 		final byte[] answerData = answer.getData();
 		final TFSValue value = new TFSValue(answerData);
-		if (value.getTemperatur() == 0x8002) {
-			throw new HardwareError("Sensor " + Integer.toHexString(address)
-					+ " defekt");
-		}
+		if (value.getTemperatur() == 0x8002)
+			throw new HardwareError("Sensor " + Integer.toHexString(address) + " defekt");
 		return value;
 	}
 
-	public void registerEventAt(final int moduleAddress, final byte sensor,
-			final byte actor) throws IOException {
+	public void registerEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
 		final IMessage msg = prepareIMessage(moduleAddress);
 		final byte[] data = new byte[] { 'q', sensor, actor };
 		msg.setData(data);
@@ -390,14 +359,12 @@ public class HS485 {
 		encoder.sendPacket(ack);
 	}
 
-	synchronized private void sendAndWaitForAck(final IMessage msg)
-			throws IOException {
+	synchronized private void sendAndWaitForAck(final IMessage msg) throws IOException {
 		final byte origSenderNumber = msg.getSenderNumber();
 		for (int k = 0; k < INC_REPEAT_COUNT; k++) {
-			final byte tempSenderNummer = (byte) ((origSenderNumber + k) & 0x3);
+			final byte tempSenderNummer = (byte) (origSenderNumber + k & 0x3);
 			msg.setSenderNumber(tempSenderNummer);
-			final AckIndex ackIndex = new AckIndex(msg.getTargetAddress(), msg
-					.getSenderNumber());
+			final AckIndex ackIndex = new AckIndex(msg.getTargetAddress(), msg.getSenderNumber());
 			synchronized (receivedAckCount) {
 				receivedAckCount.put(ackIndex, 0);
 			}
@@ -411,10 +378,9 @@ public class HS485 {
 					} catch (final InterruptedException e) {
 						log.warn("Exception beim Warten auf ACK", e);
 					}
-					if (receivedAckCount.get(ackIndex) > 0) {
+					if (receivedAckCount.get(ackIndex) > 0)
 						// System.out.println("time: " + j);
 						return;
-					}
 				}
 				// }
 			}
@@ -422,17 +388,15 @@ public class HS485 {
 		throw new TimeoutException("Expected Ack not requested");
 	}
 
-	synchronized private IMessage sendAndWaitForAnswer(final IMessage msg)
-			throws IOException {
+	synchronized private IMessage sendAndWaitForAnswer(final IMessage msg) throws IOException {
 
 		final byte origSenderNumber = msg.getSenderNumber();
 		for (int k = 0; k < INC_REPEAT_COUNT; k++) {
-			final byte tempSenderNummer = (byte) ((origSenderNumber + k) & 0x3);
+			final byte tempSenderNummer = (byte) (origSenderNumber + k & 0x3);
 			msg.setSenderNumber(tempSenderNummer);
 
 			synchronized (expectedReceiveQueue) {
-				expectedReceiveQueue.put(msg.getTargetAddress(),
-						new LinkedList<IMessage>());
+				expectedReceiveQueue.put(msg.getTargetAddress(), new LinkedList<IMessage>());
 			}
 			for (int i = 0; i < PACKET_REPEAT_COUNT; i++) {
 				encoder.sendPacket(msg);
@@ -444,14 +408,12 @@ public class HS485 {
 					} catch (final InterruptedException e) {
 						log.warn("Exception beim Warten auf Antwort", e);
 					}
-					final LinkedList<IMessage> queue = expectedReceiveQueue
-							.get(msg.getTargetAddress());
+					final LinkedList<IMessage> queue = expectedReceiveQueue.get(msg.getTargetAddress());
 					while (queue.size() > 0) {
 						final IMessage nextCandidate = queue.removeFirst();
-						if (nextCandidate.getReceiveNumber() == msg
-								.getSenderNumber()) {
+						if (nextCandidate.getReceiveNumber() == msg.getSenderNumber())
 							return nextCandidate;
-						} else {
+						else {
 							// log.warn("Wrong answer: " + nextCandidate);
 						}
 					}
@@ -462,48 +424,42 @@ public class HS485 {
 		throw new TimeoutException("Expected Answer not requested");
 	}
 
-	public void unRegisterEventAt(final int moduleAddress, final byte sensor,
-			final byte actor) throws IOException {
+	public void unRegisterEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
 		final IMessage msg = prepareIMessage(moduleAddress);
 		final byte[] data = new byte[] { 'c', sensor, actor };
 		msg.setData(data);
 		sendAndWaitForAck(msg);
 	}
 
-	public void writeActor(final int moduleAddress, final byte actor,
-			final byte action) throws IOException {
+	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
 		final IMessage msg = prepareIMessage(moduleAddress);
 		final byte[] data = new byte[] { 's', 0, actor, action };
 		msg.setData(data);
 		sendAndWaitForAck(msg);
 	}
 
-	public void writeModuleEEPROM(final int deviceAddress, final int offset,
-			final byte[] data) throws IOException {
+	public void writeModuleEEPROM(final int deviceAddress, final int offset, final byte[] data) throws IOException {
 		writeModuleEEPROM(deviceAddress, offset, data, 0, data.length);
 	}
 
-	public void writeModuleEEPROM(final int deviceAddress, final int memOffset,
-			final byte[] data, final int dataOffset, final int length)
+	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
 			throws IOException {
 		int partOffset = 0;
 		while (partOffset < length) {
 			int partSize = length - partOffset;
 			if (partSize > 32)
 				partSize = 32;
-			writeModuleEEPROMRaw(deviceAddress, memOffset + partOffset, data,
-					dataOffset + partOffset, partSize);
+			writeModuleEEPROMRaw(deviceAddress, memOffset + partOffset, data, dataOffset + partOffset, partSize);
 			partOffset += partSize;
 		}
 	}
 
-	private void writeModuleEEPROMRaw(final int deviceAddress,
-			final int offset, final byte[] data, final int dataOffset,
-			final int dataCount) throws IOException {
+	private void writeModuleEEPROMRaw(final int deviceAddress, final int offset, final byte[] data, final int dataOffset, final int dataCount)
+			throws IOException {
 		final IMessage msg = prepareIMessage(deviceAddress);
 		final byte[] pckData = new byte[4 + dataCount];
 		pckData[0] = 'W';
-		pckData[1] = (byte) ((offset >> 8) & 0xff);
+		pckData[1] = (byte) (offset >> 8 & 0xff);
 		pckData[2] = (byte) (offset & 0xff);
 		pckData[3] = (byte) dataCount;
 		System.arraycopy(data, dataOffset, pckData, 4, dataCount);

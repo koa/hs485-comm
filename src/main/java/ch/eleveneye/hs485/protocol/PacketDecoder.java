@@ -7,12 +7,14 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 
 public class PacketDecoder {
 	class ReaderThread extends Thread {
 
-		private boolean running = true;
+		private boolean	running	= true;
 
 		synchronized boolean isRunning() {
 			return running;
@@ -30,7 +32,7 @@ public class PacketDecoder {
 			int lengthPos = 10;
 			boolean shortPacket = false;
 			final CRC16 crc = new CRC16();
-			while (isRunning()) {
+			while (isRunning())
 				try {
 					final int nextChar = inStream.read();
 					// System.out.print(Integer.toHexString(nextChar) + ", ");
@@ -64,49 +66,41 @@ public class PacketDecoder {
 						lastWasFC = true;
 						break;
 					default: // normales Zeichen
-						if (readPtr >= buffer.length) { // Pufferüberlauf
+						if (readPtr >= buffer.length)
 							readPtr = -1;
-						} else if (readPtr >= 0) { // Packet-Start wurde
+						else if (readPtr >= 0) { // Packet-Start wurde
 							// empfangen
 							byte currentB = (byte) nextChar;
-							if (lastWasFC) {
+							if (lastWasFC)
 								currentB |= 0x80;
-							}
 							buffer[readPtr++] = currentB;
 							crc.shift(currentB);
-							if (readPtr == 5 && !shortPacket) { // Kontrollzeichen
-								if (controllIsI(currentB)
-										|| controllIsACK(currentB)) {
+							if (readPtr == 5 && !shortPacket)
+								if (controllIsI(currentB) || controllIsACK(currentB)) {
 									// I oder ACK-Nachricht
-									if (controlHasSourceAddr(currentB)) {
+									if (controlHasSourceAddr(currentB))
 										lengthPos = 10;
-										// Absender-Adresse
-									} else {
+									// Absender-Adresse
+									else
 										lengthPos = 6; // keine
-										// Absender-Adresse
-									}
+									// Absender-Adresse
 								} else { // Discovery-Nachricht
 									packetLength = 7;
 									lengthPos = 10;
 								}
-							}
-							if (readPtr == lengthPos) {
+							if (readPtr == lengthPos)
 								packetLength = currentB + readPtr;
-							}
 							if (readPtr == packetLength) {
 								// System.out.println();
 								// war letztes Zeichen -> Packet dekodieren
 								crc.shift(0);
 								crc.shift(0);
-								if (crc.checkCRC()) {
-									handlePacket(buffer, readPtr, lengthPos,
-											shortPacket);
-								} else {
+								if (crc.checkCRC())
+									handlePacket(buffer, readPtr, lengthPos, shortPacket);
+								else
 									log.warn("CRC-Error");
-								}
 								readPtr = -1;
-								setLastPacketReceived(System
-										.currentTimeMillis());
+								setLastPacketReceived(System.currentTimeMillis());
 								setReceivingPacket(false);
 							}
 						} else {
@@ -118,10 +112,8 @@ public class PacketDecoder {
 						break;
 					}
 				} catch (final IOException e) {
-					log.warn("IO-Fehler beim dekodieren der empfangenen Daten",
-							e);
+					log.warn("IO-Fehler beim dekodieren der empfangenen Daten", e);
 				}
-			}
 		}
 
 		synchronized void setRunning(final boolean running) {
@@ -130,7 +122,7 @@ public class PacketDecoder {
 
 	}
 
-	static protected Logger log = Logger.getLogger(PacketDecoder.class);
+	static protected Logger	log	= Logger.getLogger(PacketDecoder.class);
 
 	static private boolean controlHasSourceAddr(final byte currentB) {
 		return (currentB & 0x08) == 8;
@@ -144,19 +136,19 @@ public class PacketDecoder {
 		return (currentB & 0x01) == 0x00;
 	}
 
-	List<Integer> clientList;
+	List<Integer>						clientList;
 
-	List<RawDataHandler> clientListListeners;
+	List<RawDataHandler>		clientListListeners;
 
-	InputStream inStream;
+	InputStream							inStream;
 
-	long lastPacketReceived = 0;
+	long										lastPacketReceived	= 0;
 
-	ReaderThread myThread;
+	ReaderThread						myThread;
 
-	HashMap<Integer, Byte> receivedSenderNumber;
+	HashMap<Integer, Byte>	receivedSenderNumber;
 
-	boolean receivingPacket;
+	boolean									receivingPacket;
 
 	public PacketDecoder(final InputStream stream) {
 		inStream = stream;
@@ -184,48 +176,35 @@ public class PacketDecoder {
 		return lastPacketReceived;
 	}
 
-	void handlePacket(final byte[] buffer, final int readPtr,
-			final int lengthPos, final boolean shortPacket) {
+	void handlePacket(final byte[] buffer, final int readPtr, final int lengthPos, final boolean shortPacket) {
 
-		if (shortPacket) {
+		if (shortPacket)
 			switch (buffer[4]) {
 			case (byte) 0x80:
-				if (clientList == null) {
+				if (clientList == null)
 					clientList = new LinkedList<Integer>();
-				}
-				final int clientAddr = ((buffer[5] & 0xff) << 24)
-						| ((buffer[6] & 0xff) << 16)
-						| ((buffer[7] & 0xff) << 8) | (buffer[8] & 0xff);
-				log.trace("Client-Resultat empfangen: "
-						+ Integer.toHexString(clientAddr));
+				final int clientAddr = (buffer[5] & 0xff) << 24 | (buffer[6] & 0xff) << 16 | (buffer[7] & 0xff) << 8 | buffer[8] & 0xff;
+				log.trace("Client-Resultat empfangen: " + Integer.toHexString(clientAddr));
 				if (clientAddr == 0xffffffff) {
 					synchronized (clientListListeners) {
-						for (final RawDataHandler listener : clientListListeners) {
+						for (final RawDataHandler listener : clientListListeners)
 							listener.handleClientList(clientList);
-						}
 					}
 					clientList = null;
-				} else {
+				} else
 					clientList.add(clientAddr);
-				}
 				break;
 			default:
 				break;
 			}
-		} else {
+		else {
 
-			final int targetAddr = ((buffer[0] & 0xff) << 24)
-					| ((buffer[1] & 0xff) << 16) | ((buffer[2] & 0xff) << 8)
-					| (buffer[3] & 0xff);
+			final int targetAddr = (buffer[0] & 0xff) << 24 | (buffer[1] & 0xff) << 16 | (buffer[2] & 0xff) << 8 | buffer[3] & 0xff;
 			int sourceAddr = -1;
 			final byte controllChar = buffer[4];
-			final boolean hasSenderAddress = (controllIsACK(controllChar) || controllIsI(controllChar))
-					&& controlHasSourceAddr(controllChar);
-			if (hasSenderAddress) {
-				sourceAddr = (((buffer[5] & 0xff) << 24)
-						| ((buffer[6] & 0xff) << 16)
-						| ((buffer[7] & 0xff) << 8) | (buffer[8] & 0xff));
-			}
+			final boolean hasSenderAddress = (controllIsACK(controllChar) || controllIsI(controllChar)) && controlHasSourceAddr(controllChar);
+			if (hasSenderAddress)
+				sourceAddr = (buffer[5] & 0xff) << 24 | (buffer[6] & 0xff) << 16 | (buffer[7] & 0xff) << 8 | buffer[8] & 0xff;
 			HS485Message packet;
 			final StringBuffer descString = new StringBuffer();
 			if (controllIsI(controllChar)) {
@@ -235,42 +214,33 @@ public class PacketDecoder {
 				iMessage.setLastPacket((controllChar & 0x10) != 0);
 				iMessage.setSenderNumber((byte) ((controllChar & 0x06) >> 1));
 				final byte[] data = new byte[readPtr - lengthPos - 2];
-				for (int i = 0; i < data.length; i++) {
+				for (int i = 0; i < data.length; i++)
 					data[i] = buffer[lengthPos + i];
-				}
 				iMessage.setData(data);
 
 				iMessage.setDuplicatePacket(false);
-				if (hasSenderAddress && !iMessage.isSync()
-						&& receivedSenderNumber.containsKey(sourceAddr)) {
-					iMessage
-							.setDuplicatePacket(iMessage.getSenderNumber() == receivedSenderNumber
-									.get(sourceAddr).byteValue());
-				}
-				receivedSenderNumber
-						.put(sourceAddr, iMessage.getSenderNumber());
+				if (hasSenderAddress && !iMessage.isSync() && receivedSenderNumber.containsKey(sourceAddr))
+					iMessage.setDuplicatePacket(iMessage.getSenderNumber() == receivedSenderNumber.get(sourceAddr).byteValue());
+				receivedSenderNumber.put(sourceAddr, iMessage.getSenderNumber());
 
 				receivedSenderNumber.remove(targetAddr);
 
 				packet = iMessage;
 
 				descString.append("I ");
-				if ((controllChar & 0x80) != 0) {
+				if ((controllChar & 0x80) != 0)
 					descString.append("Sync ");
-				}
 				descString.append("R:");
 				descString.append(Integer.toString((controllChar & 0x60) >> 5));
 				descString.append(" ");
-				if ((controllChar & 0x10) != 0) {
+				if ((controllChar & 0x10) != 0)
 					descString.append("F ");
-				}
 				descString.append("S:");
 				descString.append(Integer.toString((controllChar & 0x06) >> 1));
 				descString.append(" ");
 			} else if (controllIsACK(controllChar)) {
 				final ACKMessage ackMessage = new ACKMessage();
-				ackMessage
-						.setReceiveNumber((byte) ((controllChar & 0x60) >> 5));
+				ackMessage.setReceiveNumber((byte) ((controllChar & 0x60) >> 5));
 				packet = ackMessage;
 				descString.append("Ack ");
 				descString.append("R:");
@@ -278,8 +248,7 @@ public class PacketDecoder {
 				descString.append(" ");
 			} else {
 				final DiscoveryMessage discoveryMessage = new DiscoveryMessage();
-				discoveryMessage
-						.setMaskCount((byte) ((controllChar & 0xf8) >> 3));
+				discoveryMessage.setMaskCount((byte) ((controllChar & 0xf8) >> 3));
 				packet = discoveryMessage;
 				descString.append("Discovery ");
 				descString.append("M:");
@@ -300,18 +269,15 @@ public class PacketDecoder {
 			 */
 			log.trace("Received: " + packet);
 			synchronized (clientListListeners) {
-				for (final RawDataHandler listener : clientListListeners) {
+				for (final RawDataHandler listener : clientListListeners)
 					listener.handleLongPacket(packet);
-				}
 			}
 		}
 	}
 
 	public boolean isBusFree() {
 		final int randomDelay = (int) Math.random() * 30 + 3;
-		return !isReceivingPacket()
-				&& getLastPacketReceived() + randomDelay < System
-						.currentTimeMillis();
+		return !isReceivingPacket() && getLastPacketReceived() + randomDelay < System.currentTimeMillis();
 	}
 
 	public synchronized boolean isReceivingPacket() {
