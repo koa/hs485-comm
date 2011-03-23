@@ -9,7 +9,9 @@
 	<version>0.5.1-SNAPSHOT</version>
 	<description>Kommunikations-Library für HS485</description>
 	<scm>
-		<connection>scm:git:git://neptun.berg.local/git/HS485-Comm</connection>
+		<connection>scm:git:git://github.com/koa/hs485-comm.git</connection>
+		<developerConnection>scm:git:git@github.com:koa/hs485-comm.git</developerConnection>
+		<url>https://github.com/koa/hs485-comm</url>
 	</scm>
 	<build>
 		<resources>
