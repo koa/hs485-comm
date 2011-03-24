@@ -1,18 +1,18 @@
-package ch.eleveneye.hs485.protocol.data;
+package ch.eleveneye.hs485.api.data;
 
 import java.text.NumberFormat;
 
 public class TFSValue {
-	int temperatur;
+	private int	humidity;
 
-	int humidity;
+	private int	temperatur;
 
 	public TFSValue() {
 
 	}
 
 	public TFSValue(final byte[] answerData) {
-		temperatur = (answerData[0] << 8 | (answerData[1] & 0xff)) & 0xffff;
+		temperatur = (answerData[0] << 8 | answerData[1] & 0xff) & 0xffff;
 		humidity = answerData[2] & 0xff;
 	}
 
@@ -63,7 +63,6 @@ public class TFSValue {
 
 	@Override
 	public String toString() {
-		return "Temp: " + NumberFormat.getInstance().format(readTemperatur())
-				+ "°C, Hum: " + getHumidity() + "%";
+		return "Temp: " + NumberFormat.getInstance().format(readTemperatur()) + "°C, Hum: " + getHumidity() + "%";
 	}
 }
