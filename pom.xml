@@ -2,6 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
                       http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<artifactId>parent</artifactId>
+		<groupId>ch.berg-turbenthal.parent</groupId>
+		<version>0.0.8-SNAPSHOT</version>
+	</parent>
 	<modelVersion>4.0.0</modelVersion>
 	<name>HS485-Comm</name>
 	<groupId>ch.eleveneye.hs485</groupId>
@@ -62,27 +67,11 @@
 			</exclusions>
 		</dependency>
 	</dependencies>
-	<distributionManagement>
-		<repository>
-			<id>internal</id>
-			<url>
-				dav:http://venus.intern.eleveneye.ch:8081/archiva/repository/internal/
-			</url>
-		</repository>
-		<snapshotRepository>
-			<id>snapshots</id>
-			<url>
-				dav:http://venus.intern.eleveneye.ch:8081/archiva/repository/snapshots/
-			</url>
-		</snapshotRepository>
-	</distributionManagement>
 	<repositories>
 		<repository>
-			<id>internal</id>
-			<name>Archiva Managed Internal Repository</name>
-			<url>
-				http://venus.intern.eleveneye.ch:8081/archiva/repository/internal/
-			</url>
+			<id>berg-turbenthal-releases</id>
+			<name>Neptun-releases</name>
+			<url>http://www.berg-turbenthal.ch/maven/releases/</url>
 			<releases>
 				<enabled>true</enabled>
 			</releases>
@@ -91,24 +80,15 @@
 			</snapshots>
 		</repository>
 		<repository>
-			<id>snapshots</id>
-			<name>Archiva Managed Snapshot Repository</name>
-			<url>
-				http://venus.intern.eleveneye.ch:8081/archiva/repository/snapshots/
-			</url>
+			<id>berg-turbenthal-snapshots</id>
+			<name>Neptun-snapshots</name>
+			<url>http://www.berg-turbenthal.ch/maven/snapshots/</url>
 			<releases>
-				<enabled>true</enabled>
+				<enabled>false</enabled>
 			</releases>
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
-		</repository>
-		<repository>
-			<id>atlassian</id>
-			<url>https://maven.atlassian.com/repository/public</url>
-			<releases>
-				<updatePolicy>daily</updatePolicy>
-			</releases>
 		</repository>
 	</repositories>
 </project>
