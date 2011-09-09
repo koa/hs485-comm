@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
+import ch.eleveneye.hs485.api.BroadcastHandler;
 import ch.eleveneye.hs485.api.HS485;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
@@ -14,24 +17,48 @@ import ch.eleveneye.hs485.dummy.device.Device;
 import ch.eleveneye.hs485.dummy.device.HS485D;
 import ch.eleveneye.hs485.dummy.device.HS485S;
 import ch.eleveneye.hs485.event.EventHandler;
+import ch.eleveneye.hs485.protocol.IMessage;
 
-public class HS485Dummy implements HS485 {
-	private final Map<Integer, Device>	devices	= new HashMap<Integer, Device>();
+public class HS485Dummy implements HS485, BroadcastHandler {
+	private final List<BroadcastHandler>	broadcasHandlers	= new ArrayList<BroadcastHandler>();
+	private final Map<Integer, Device>		devices						= new HashMap<Integer, Device>();
+	ScheduledExecutorService							executorService		= Executors.newScheduledThreadPool(3);
 
 	public HS485Dummy() {
-		devices.put(0x440, new HS485S());
-		devices.put(0x441, new HS485S());
-		devices.put(0x442, new HS485S());
-		devices.put(0x443, new HS485S());
-		devices.put(0x450, new HS485D());
-		devices.put(0x451, new HS485D());
-		devices.put(0x452, new HS485D());
-		devices.put(0x453, new HS485D());
+		addHS485S(0x440);
+		addHS485S(0x441);
+		addHS485S(0x442);
+		addHS485S(0x443);
+		addHS485D(0x450);
+		addHS485D(0x451);
+		addHS485D(0x452);
+		addHS485D(0x453);
+	}
+
+	public void addBroadcastHandler(final BroadcastHandler handler) {
+		broadcasHandlers.add(handler);
+	}
+
+	private void addHS485D(final int address) {
+		final HS485D device = new HS485D(address, this);
+		device.setExecutorService(executorService);
+		devices.put(address, device);
+	}
+
+	private void addHS485S(final int address) {
+		final HS485S device = new HS485S(address, this);
+		device.setExecutorService(executorService);
+		devices.put(address, device);
 	}
 
 	public void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException {
 		// TODO Auto-generated method stub
 
+	}
+
+	public void handleBroadcastMessage(final IMessage message) {
+		for (final BroadcastHandler handler : broadcasHandlers)
+			handler.handleBroadcastMessage(message);
 	}
 
 	public List<Integer> listClients() throws IOException {

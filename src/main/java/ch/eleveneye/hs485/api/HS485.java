@@ -10,6 +10,8 @@ import ch.eleveneye.hs485.event.EventHandler;
 
 public interface HS485 {
 
+	public void addBroadcastHandler(final BroadcastHandler handler);
+
 	public abstract void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException;
 
 	public abstract List<Integer> listClients() throws IOException;

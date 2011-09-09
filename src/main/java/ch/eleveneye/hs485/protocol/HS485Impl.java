@@ -10,9 +10,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.log4j.Logger;
 
+import ch.eleveneye.hs485.api.BroadcastHandler;
 import ch.eleveneye.hs485.api.HS485;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
@@ -42,7 +45,7 @@ public class HS485Impl implements HS485 {
 	class DataHandler implements RawDataHandler {
 
 		private void doAck(final IMessage iMsg) {
-			new Thread(new AckRunnable(iMsg), "AckThread").start();
+			executorService.execute(new AckRunnable(iMsg));
 		}
 
 		public void handleClientList(final List<Integer> clients) {
@@ -65,7 +68,7 @@ public class HS485Impl implements HS485 {
 							if (handler == null) {
 								if (packet.getTargetAddress() == ownAddress) {
 									doAck(iMsg);
-									new Thread(new Runnable() {
+									executorService.execute(new Runnable() {
 										public void run() {
 											try {
 												unRegisterEventAt(packet.getSourceAddress(), data[1], data[2]);
@@ -74,12 +77,14 @@ public class HS485Impl implements HS485 {
 														+ data[2], e);
 											}
 										}
-									}).start();
-								}
+									});
+								} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
+									handleBroadcast(iMsg);
+
 							} else {
 								doAck(iMsg);
 								final byte eventByte = data[3];
-								new Thread(new Runnable() {
+								executorService.execute(new Runnable() {
 									public void run() {
 										try {
 											handler.doEvent(eventByte);
@@ -87,7 +92,7 @@ public class HS485Impl implements HS485 {
 											log.error("Fehler bei der Eventverarbeitung", e);
 										}
 									}
-								}).start();
+								});
 							}
 						}
 					}
@@ -100,14 +105,16 @@ public class HS485Impl implements HS485 {
 						}
 						queue.addLast(iMsg);
 					}
-					new Thread(new Runnable() {
+					executorService.execute(new Runnable() {
 						public void run() {
 							synchronized (expectedReceiveQueue) {
 								expectedReceiveQueue.notifyAll();
 							}
 						}
-					}).start();
-				}
+					});
+				} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
+					handleBroadcast(iMsg);
+
 			} else if (packet instanceof ACKMessage && packet.getTargetAddress() == ownAddress) {
 				final ACKMessage ackPacket = (ACKMessage) packet; // handle
 				// ack-Message
@@ -119,13 +126,13 @@ public class HS485Impl implements HS485 {
 					else
 						receivedAckCount.put(index, countBefore + 1);
 				}
-				new Thread(new Runnable() {
+				executorService.execute(new Runnable() {
 					public void run() {
 						synchronized (receivedAckCount) {
 							receivedAckCount.notifyAll();
 						}
 					}
-				}).start();
+				});
 			}
 			/*
 			 * } else if (packet.getTargetAddress() == 0xffffffff) { if (packet
@@ -134,41 +141,52 @@ public class HS485Impl implements HS485 {
 		}
 	}
 
-	protected static final int												INC_REPEAT_COUNT			= 8;
+	private static final int												BROADCAST_ADDRESS			= 0xffffffff;
 
-	private static Logger															log										= Logger.getLogger(HS485Impl.class);
+	private static final int												INC_REPEAT_COUNT			= 8;
 
-	protected static final int												PACKET_REPEAT_COUNT		= 4;
+	private static Logger														log										= Logger.getLogger(HS485Impl.class);
 
-	private static final int													PACKET_WAIT_TIME			= 200;
+	private static final int												PACKET_REPEAT_COUNT		= 4;
 
-	protected List<Integer>														clientList;
+	private static final int												PACKET_WAIT_TIME			= 200;
 
-	Object																						clientListMutex				= new Object();
+	private final List<BroadcastHandler>						broadcastHandlers			= new ArrayList<BroadcastHandler>();
 
-	private RXTXPort																	commPort;
+	private List<Integer>														clientList;
 
-	private int																				currentSenderNumber;
+	private final Object														clientListMutex				= new Object();
 
-	private PacketDecoder															decoder;
+	private RXTXPort																commPort;
 
-	private PacketEncoder															encoder;
+	private int																			currentSenderNumber;
 
-	protected HashMap<Integer, LinkedList<IMessage>>	expectedReceiveQueue;
+	private PacketDecoder														decoder;
 
-	protected HashMap<EventIndex, EventHandler>				keyEventHandlers;
+	private PacketEncoder														encoder;
 
-	long																							lastClientListUpdate	= 0;
+	private ExecutorService													executorService				= Executors.newCachedThreadPool();
 
-	int																								ownAddress;
+	private HashMap<Integer, LinkedList<IMessage>>	expectedReceiveQueue;
 
-	Object																						readClientListMutex		= new Object();
+	private HashMap<EventIndex, EventHandler>				keyEventHandlers;
 
-	protected HashMap<AckIndex, Integer>							receivedAckCount;
+	private long																		lastClientListUpdate	= 0;
+
+	private int																			ownAddress;
+	private final Object														readClientListMutex		= new Object();
+
+	private HashMap<AckIndex, Integer>							receivedAckCount;
 
 	public HS485Impl(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
 		init(port, myAddress);
 		currentSenderNumber = 0;
+	}
+
+	public void addBroadcastHandler(final BroadcastHandler handler) {
+		synchronized (broadcastHandlers) {
+			broadcastHandlers.add(handler);
+		}
 	}
 
 	/*
@@ -189,6 +207,19 @@ public class HS485Impl implements HS485 {
 	protected void finalize() throws Throwable {
 		super.finalize();
 		commPort.close();
+	}
+
+	public void handleBroadcast(final IMessage iMsg) {
+		executorService.execute(new Runnable() {
+
+			public void run() {
+				synchronized (broadcastHandlers) {
+					for (final BroadcastHandler handler : broadcastHandlers)
+						handler.handleBroadcastMessage(iMsg);
+
+				}
+			}
+		});
 	}
 
 	private void init(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
@@ -485,6 +516,10 @@ public class HS485Impl implements HS485 {
 			}
 		}
 		throw new TimeoutException("Expected Answer not requested");
+	}
+
+	public void setExecutorService(final ExecutorService executorService) {
+		this.executorService = executorService;
 	}
 
 	/*

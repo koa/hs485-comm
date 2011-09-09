@@ -1,11 +1,12 @@
 package ch.eleveneye.hs485.dummy.device;
 
+import ch.eleveneye.hs485.api.BroadcastHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
 
 public class HS485D extends Device {
-	public HS485D() {
-		super(1);
+	public HS485D(final int address, final BroadcastHandler handler) {
+		super(1, address, handler);
 	}
 
 	@Override
