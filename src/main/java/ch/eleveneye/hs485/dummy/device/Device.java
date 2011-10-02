@@ -85,15 +85,14 @@ public abstract class Device {
 		return null;
 	}
 
-	private void scheduleNextBroadcast() {
-		final int keyNr = (int) (Math.random() * 2);
+	private void scheduleNextBroadcast(final int keyNr) {
 		final int time;
 		final TimeUnit waitTimeUnit;
 		if (keyPressed[keyNr]) {
-			time = (int) (Math.random() * 20 + 10);
+			time = (int) (Math.random() * 60 + 10);
 			waitTimeUnit = TimeUnit.SECONDS;
 		} else {
-			time = (int) (Math.random() * 300 + 100);
+			time = (int) (Math.random() * 100 + 5);
 			waitTimeUnit = TimeUnit.MILLISECONDS;
 		}
 
@@ -107,9 +106,9 @@ public abstract class Device {
 				msg.setSenderNumber((byte) (1 & 0x03));
 				msg.setReceiveNumber((byte) 0);
 				msg.setHasSourceAddr(true);
-				msg.setData(new byte[] { 'K', (byte) keyNr, 0, (byte) (keyPressed[keyNr] ? 0 : 2) });
+				msg.setData(new byte[] { 'K', (byte) keyNr, 0, (byte) (keyPressed[keyNr] ? 128 : 0) });
+				scheduleNextBroadcast(keyNr);
 				keyPressed[keyNr] = !keyPressed[keyNr];
-				scheduleNextBroadcast();
 				handler.handleBroadcastMessage(msg);
 			}
 		}, time, waitTimeUnit);
@@ -117,7 +116,8 @@ public abstract class Device {
 
 	public void setExecutorService(final ScheduledExecutorService executorService) {
 		this.executorService = executorService;
-		scheduleNextBroadcast();
+		for (int i = 0; i < 2; i++)
+			scheduleNextBroadcast(i);
 	}
 
 	public synchronized void writeActor(final byte actorNr, final byte value) {
