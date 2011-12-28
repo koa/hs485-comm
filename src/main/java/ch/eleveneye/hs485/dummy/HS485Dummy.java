@@ -16,13 +16,14 @@ import ch.eleveneye.hs485.api.data.TFSValue;
 import ch.eleveneye.hs485.dummy.device.Device;
 import ch.eleveneye.hs485.dummy.device.HS485D;
 import ch.eleveneye.hs485.dummy.device.HS485S;
+import ch.eleveneye.hs485.dummy.device.TFS;
 import ch.eleveneye.hs485.event.EventHandler;
 import ch.eleveneye.hs485.protocol.IMessage;
 
 public class HS485Dummy implements HS485, BroadcastHandler {
+	ScheduledExecutorService							executorService		= Executors.newScheduledThreadPool(3);
 	private final List<BroadcastHandler>	broadcasHandlers	= new ArrayList<BroadcastHandler>();
 	private final Map<Integer, Device>		devices						= new HashMap<Integer, Device>();
-	ScheduledExecutorService							executorService		= Executors.newScheduledThreadPool(3);
 
 	public HS485Dummy() {
 		addHS485S(0x440);
@@ -33,22 +34,13 @@ public class HS485Dummy implements HS485, BroadcastHandler {
 		addHS485D(0x451);
 		addHS485D(0x452);
 		addHS485D(0x453);
+		addTFS(0x500);
+		addTFS(0x501);
+		addTFS(0x502);
 	}
 
 	public void addBroadcastHandler(final BroadcastHandler handler) {
 		broadcasHandlers.add(handler);
-	}
-
-	private void addHS485D(final int address) {
-		final HS485D device = new HS485D(address, this);
-		device.setExecutorService(executorService);
-		devices.put(address, device);
-	}
-
-	private void addHS485S(final int address) {
-		final HS485S device = new HS485S(address, this);
-		device.setExecutorService(executorService);
-		devices.put(address, device);
 	}
 
 	public void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException {
@@ -108,6 +100,23 @@ public class HS485Dummy implements HS485, BroadcastHandler {
 	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
 			throws IOException {
 		devices.get(deviceAddress).writeEEPROM(memOffset, data, dataOffset, length);
+
+	}
+
+	private void addHS485D(final int address) {
+		final HS485D device = new HS485D(address, this);
+		device.setExecutorService(executorService);
+		devices.put(address, device);
+	}
+
+	private void addHS485S(final int address) {
+		final HS485S device = new HS485S(address, this);
+		device.setExecutorService(executorService);
+		devices.put(address, device);
+	}
+
+	private void addTFS(final int address) {
+		devices.put(address, new TFS(address));
 
 	}
 
