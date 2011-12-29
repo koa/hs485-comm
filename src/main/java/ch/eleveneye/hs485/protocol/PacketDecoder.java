@@ -7,7 +7,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 
@@ -15,10 +16,6 @@ public class PacketDecoder {
 	class ReaderThread extends Thread {
 
 		private boolean	running	= true;
-
-		synchronized boolean isRunning() {
-			return running;
-		}
 
 		@Override
 		public void run() {
@@ -116,13 +113,17 @@ public class PacketDecoder {
 				}
 		}
 
+		synchronized boolean isRunning() {
+			return running;
+		}
+
 		synchronized void setRunning(final boolean running) {
 			this.running = running;
 		}
 
 	}
 
-	static protected Logger	log	= Logger.getLogger(PacketDecoder.class);
+	private static final Logger	log	= LoggerFactory.getLogger(PacketDecoder.class);
 
 	static private boolean controlHasSourceAddr(final byte currentB) {
 		return (currentB & 0x08) == 8;
@@ -174,6 +175,23 @@ public class PacketDecoder {
 
 	public synchronized long getLastPacketReceived() {
 		return lastPacketReceived;
+	}
+
+	public boolean isBusFree() {
+		final int randomDelay = (int) Math.random() * 30 + 3;
+		return !isReceivingPacket() && getLastPacketReceived() + randomDelay < System.currentTimeMillis();
+	}
+
+	public synchronized boolean isReceivingPacket() {
+		return receivingPacket;
+	}
+
+	public synchronized void setLastPacketReceived(final long lastPacketReceived) {
+		this.lastPacketReceived = lastPacketReceived;
+	}
+
+	public synchronized void setReceivingPacket(final boolean receivingPacket) {
+		this.receivingPacket = receivingPacket;
 	}
 
 	void handlePacket(final byte[] buffer, final int readPtr, final int lengthPos, final boolean shortPacket) {
@@ -273,22 +291,5 @@ public class PacketDecoder {
 					listener.handleLongPacket(packet);
 			}
 		}
-	}
-
-	public boolean isBusFree() {
-		final int randomDelay = (int) Math.random() * 30 + 3;
-		return !isReceivingPacket() && getLastPacketReceived() + randomDelay < System.currentTimeMillis();
-	}
-
-	public synchronized boolean isReceivingPacket() {
-		return receivingPacket;
-	}
-
-	public synchronized void setLastPacketReceived(final long lastPacketReceived) {
-		this.lastPacketReceived = lastPacketReceived;
-	}
-
-	public synchronized void setReceivingPacket(final boolean receivingPacket) {
-		this.receivingPacket = receivingPacket;
 	}
 }

@@ -1,5 +1,8 @@
 package ch.eleveneye.hs485.protocol;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class IMessage extends HS485Message {
 	public enum KeyEventType {
 		HOLD, PRESS, RELEASE, UNKNOWN
@@ -8,6 +11,8 @@ public class IMessage extends HS485Message {
 	public enum KeyType {
 		DOWN, TOGGLE, UNKNOWN, UP
 	}
+
+	private static final Logger	logger	= LoggerFactory.getLogger(IMessage.class);
 
 	public static KeyEventType decodeEventType(final byte keyValue) {
 		switch (keyValue & 0x03) {
@@ -23,11 +28,11 @@ public class IMessage extends HS485Message {
 	}
 
 	public static byte decodeKeyPressCount(final byte key) {
-		return (byte) (key >> 4 & 0x03);
+		return (byte) (key >> 2 & 0x03);
 	}
 
 	public static KeyType decodeKeyType(final byte keyValue) {
-		switch (keyValue >> 2 & 0x03) {
+		switch (keyValue >> 4 & 0x03) {
 		case 0x00:
 			return KeyType.TOGGLE;
 		case 0x01:
@@ -133,7 +138,10 @@ public class IMessage extends HS485Message {
 		ret.append(getReceiveNumber());
 		ret.append(" :: ");
 		for (final byte element : data) {
-			ret.append(Integer.toHexString(element & 0xff));
+			final String hexString = Integer.toHexString(element & 0xff);
+			if (hexString.length() == 1)
+				ret.append('0');
+			ret.append(hexString);
 			ret.append(" ");
 		}
 

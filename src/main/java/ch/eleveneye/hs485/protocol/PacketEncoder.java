@@ -3,16 +3,17 @@ package ch.eleveneye.hs485.protocol;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PacketEncoder {
-	public static final Logger	log	= Logger.getLogger(PacketEncoder.class);
-
-	private CRC16								crc;
+	private static final Logger	log	= LoggerFactory.getLogger(PacketEncoder.class);
 
 	PacketDecoder								decoder;
 
 	OutputStream								outStream;
+
+	private CRC16								crc;
 
 	public PacketEncoder(final OutputStream outStream, final PacketDecoder decoder) {
 		this.outStream = outStream;
@@ -66,7 +67,7 @@ public class PacketEncoder {
 			rawData[8] = (byte) (senderAddress & 0xff);
 		}
 		sendRawPacket(true, rawData);
-		log.trace(msg);
+		log.trace("{}", msg);
 	}
 
 	synchronized public void sendRawPacket(final boolean longPacket, final byte[] rawPacketData) throws IOException {
