@@ -44,10 +44,6 @@ public class HS485Impl implements HS485 {
 
 	class DataHandler implements RawDataHandler {
 
-		private void doAck(final IMessage iMsg) {
-			executorService.execute(new AckRunnable(iMsg));
-		}
-
 		public void handleClientList(final List<Integer> clients) {
 			synchronized (clientListMutex) {
 				clientList = clients;
@@ -139,6 +135,10 @@ public class HS485Impl implements HS485 {
 			 * instanceof IMessage) { IMessage iMsg = (IMessage) packet; }
 			 */
 		}
+
+		private void doAck(final IMessage iMsg) {
+			executorService.execute(new AckRunnable(iMsg));
+		}
 	}
 
 	private static final int												BROADCAST_ADDRESS			= 0xffffffff;
@@ -203,12 +203,6 @@ public class HS485Impl implements HS485 {
 		// registerEventAt(targetAddress, actorNr, (byte) 0);
 	}
 
-	@Override
-	protected void finalize() throws Throwable {
-		super.finalize();
-		commPort.close();
-	}
-
 	public void handleBroadcast(final IMessage iMsg) {
 		executorService.execute(new Runnable() {
 
@@ -220,30 +214,6 @@ public class HS485Impl implements HS485 {
 				}
 			}
 		});
-	}
-
-	private void init(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
-		ownAddress = myAddress;
-		receivedAckCount = new HashMap<AckIndex, Integer>();
-		expectedReceiveQueue = new HashMap<Integer, LinkedList<IMessage>>();
-		keyEventHandlers = new HashMap<EventIndex, EventHandler>();
-
-		final RXTXCommDriver commDriver = new RXTXCommDriver();
-		commDriver.initialize();
-		try {
-			Thread.sleep(100);
-		} catch (final InterruptedException e) {
-			log.info("Interrupted Exception aufgetreten", e);
-		}
-		commPort = (RXTXPort) commDriver.getCommPort(port, 1);
-		if (commPort == null)
-			throw new IOException("Auf Gerät " + port + " kann nicht zugegriffen werden");
-		commPort.setSerialPortParams(19200, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_EVEN);
-		commPort.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
-
-		decoder = new PacketDecoder(commPort.getInputStream());
-		encoder = new PacketEncoder(commPort.getOutputStream(), decoder);
-		decoder.addDataHandler(new DataHandler());
 	}
 
 	/*
@@ -286,17 +256,6 @@ public class HS485Impl implements HS485 {
 		return new int[] { ownAddress };
 	}
 
-	private IMessage prepareIMessage(final int moduleAddress) {
-		final IMessage msg = new IMessage();
-		msg.setSourceAddress(ownAddress);
-		msg.setTargetAddress(moduleAddress);
-		msg.setSync(true);
-		msg.setSenderNumber((byte) (currentSenderNumber-- & 0x03));
-		msg.setReceiveNumber((byte) 0);
-		msg.setHasSourceAddr(true);
-		return msg;
-	}
-
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -312,15 +271,6 @@ public class HS485Impl implements HS485 {
 
 		return answer.getData()[1];
 
-	}
-
-	private void readEEPROMRaw(final int address, final int offset, final byte[] data, final int dataOffset, final int dataCount) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'R', (byte) (offset >> 8 & 0xff), (byte) (offset & 0xff), (byte) (dataCount & 0xff) });
-		final IMessage answer = sendAndWaitForAnswer(msg);
-		sendAck(answer);
-		assert answer.getData().length == dataCount;
-		System.arraycopy(answer.getData(), 0, data, dataOffset, dataCount);
 	}
 
 	/*
@@ -444,6 +394,103 @@ public class HS485Impl implements HS485 {
 		sendAndWaitForAck(msg);
 	}
 
+	public void setExecutorService(final ExecutorService executorService) {
+		this.executorService = executorService;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see ch.eleveneye.hs485.protocol.HS485Interface#unRegisterEventAt(int,
+	 * byte, byte)
+	 */
+	public void unRegisterEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
+		final IMessage msg = prepareIMessage(moduleAddress);
+		final byte[] data = new byte[] { 'c', sensor, actor };
+		msg.setData(data);
+		sendAndWaitForAck(msg);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see ch.eleveneye.hs485.protocol.HS485Interface#writeActor(int, byte, byte)
+	 */
+	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
+		final IMessage msg = prepareIMessage(moduleAddress);
+		final byte[] data = new byte[] { 's', 0, actor, action };
+		msg.setData(data);
+		sendAndWaitForAck(msg);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see ch.eleveneye.hs485.protocol.HS485Interface#writeModuleEEPROM(int, int,
+	 * byte[], int, int)
+	 */
+	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
+			throws IOException {
+		int partOffset = 0;
+		while (partOffset < length) {
+			int partSize = length - partOffset;
+			if (partSize > 32)
+				partSize = 32;
+			writeModuleEEPROMRaw(deviceAddress, memOffset + partOffset, data, dataOffset + partOffset, partSize);
+			partOffset += partSize;
+		}
+	}
+
+	@Override
+	protected void finalize() throws Throwable {
+		super.finalize();
+		commPort.close();
+	}
+
+	private void init(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
+		ownAddress = myAddress;
+		receivedAckCount = new HashMap<AckIndex, Integer>();
+		expectedReceiveQueue = new HashMap<Integer, LinkedList<IMessage>>();
+		keyEventHandlers = new HashMap<EventIndex, EventHandler>();
+
+		final RXTXCommDriver commDriver = new RXTXCommDriver();
+		commDriver.initialize();
+		try {
+			Thread.sleep(100);
+		} catch (final InterruptedException e) {
+			log.info("Interrupted Exception aufgetreten", e);
+		}
+		commPort = (RXTXPort) commDriver.getCommPort(port, 1);
+		if (commPort == null)
+			throw new IOException("Auf Gerät " + port + " kann nicht zugegriffen werden");
+		commPort.setSerialPortParams(19200, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_EVEN);
+		commPort.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+
+		decoder = new PacketDecoder(commPort.getInputStream());
+		encoder = new PacketEncoder(commPort.getOutputStream(), decoder);
+		decoder.addDataHandler(new DataHandler());
+	}
+
+	private IMessage prepareIMessage(final int moduleAddress) {
+		final IMessage msg = new IMessage();
+		msg.setSourceAddress(ownAddress);
+		msg.setTargetAddress(moduleAddress);
+		msg.setSync(true);
+		msg.setSenderNumber((byte) (currentSenderNumber-- & 0x03));
+		msg.setReceiveNumber((byte) 0);
+		msg.setHasSourceAddr(true);
+		return msg;
+	}
+
+	private void readEEPROMRaw(final int address, final int offset, final byte[] data, final int dataOffset, final int dataCount) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { 'R', (byte) (offset >> 8 & 0xff), (byte) (offset & 0xff), (byte) (dataCount & 0xff) });
+		final IMessage answer = sendAndWaitForAnswer(msg);
+		sendAck(answer);
+		assert answer.getData().length == dataCount;
+		System.arraycopy(answer.getData(), 0, data, dataOffset, dataCount);
+	}
+
 	private void sendAck(final IMessage answer) throws IOException {
 		final ACKMessage ack = new ACKMessage();
 		ack.setSourceAddress(ownAddress);
@@ -516,53 +563,6 @@ public class HS485Impl implements HS485 {
 			}
 		}
 		throw new TimeoutException("Expected Answer not requested");
-	}
-
-	public void setExecutorService(final ExecutorService executorService) {
-		this.executorService = executorService;
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see ch.eleveneye.hs485.protocol.HS485Interface#unRegisterEventAt(int,
-	 * byte, byte)
-	 */
-	public void unRegisterEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
-		final IMessage msg = prepareIMessage(moduleAddress);
-		final byte[] data = new byte[] { 'c', sensor, actor };
-		msg.setData(data);
-		sendAndWaitForAck(msg);
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see ch.eleveneye.hs485.protocol.HS485Interface#writeActor(int, byte, byte)
-	 */
-	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
-		final IMessage msg = prepareIMessage(moduleAddress);
-		final byte[] data = new byte[] { 's', 0, actor, action };
-		msg.setData(data);
-		sendAndWaitForAck(msg);
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see ch.eleveneye.hs485.protocol.HS485Interface#writeModuleEEPROM(int, int,
-	 * byte[], int, int)
-	 */
-	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
-			throws IOException {
-		int partOffset = 0;
-		while (partOffset < length) {
-			int partSize = length - partOffset;
-			if (partSize > 32)
-				partSize = 32;
-			writeModuleEEPROMRaw(deviceAddress, memOffset + partOffset, data, dataOffset + partOffset, partSize);
-			partOffset += partSize;
-		}
 	}
 
 	private void writeModuleEEPROMRaw(final int deviceAddress, final int offset, final byte[] data, final int dataOffset, final int dataCount)

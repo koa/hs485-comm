@@ -16,8 +16,8 @@ import ch.eleveneye.hs485.protocol.IMessage;
  */
 public abstract class Device {
 	protected byte[]									actor;
-	private final int									address;
 	protected byte[]									data				= new byte[512];
+	private final int									address;
 	private ScheduledExecutorService	executorService;
 	private final BroadcastHandler		handler;
 	private final boolean[]						keyPressed	= new boolean[] { false, false };
@@ -85,6 +85,20 @@ public abstract class Device {
 		return null;
 	}
 
+	public void setExecutorService(final ScheduledExecutorService executorService) {
+		this.executorService = executorService;
+		for (int i = 0; i < 2; i++)
+			scheduleNextBroadcast(i);
+	}
+
+	public synchronized void writeActor(final byte actorNr, final byte value) {
+		actor[actorNr] = value;
+	}
+
+	public synchronized void writeEEPROM(final int memOffset, final byte[] data2, final int dataOffset, final int length) {
+		System.arraycopy(data2, dataOffset, data, memOffset, length);
+	}
+
 	private void scheduleNextBroadcast(final int keyNr) {
 		final int time;
 		final TimeUnit waitTimeUnit;
@@ -106,25 +120,11 @@ public abstract class Device {
 				msg.setSenderNumber((byte) (1 & 0x03));
 				msg.setReceiveNumber((byte) 0);
 				msg.setHasSourceAddr(true);
-				msg.setData(new byte[] { 'K', (byte) keyNr, 0, (byte) (keyPressed[keyNr] ? 128 : 0) });
+				msg.setData(new byte[] { 'K', (byte) keyNr, 0, (byte) (keyPressed[keyNr] ? 2 : 0) });
 				scheduleNextBroadcast(keyNr);
 				keyPressed[keyNr] = !keyPressed[keyNr];
 				handler.handleBroadcastMessage(msg);
 			}
 		}, time, waitTimeUnit);
-	}
-
-	public void setExecutorService(final ScheduledExecutorService executorService) {
-		this.executorService = executorService;
-		for (int i = 0; i < 2; i++)
-			scheduleNextBroadcast(i);
-	}
-
-	public synchronized void writeActor(final byte actorNr, final byte value) {
-		actor[actorNr] = value;
-	}
-
-	public synchronized void writeEEPROM(final int memOffset, final byte[] data2, final int dataOffset, final int length) {
-		System.arraycopy(data2, dataOffset, data, memOffset, length);
 	}
 }
