@@ -37,6 +37,13 @@ public class HS485Dummy implements HS485, BroadcastHandler {
 		addTFS(0x500);
 		addTFS(0x501);
 		addTFS(0x502);
+		final Device dev1 = devices.get(0x440);
+		dev1.setSensorTarget(0, 0, 0x441, 0);
+		dev1.setInputJoint(true);
+		final Device dev2 = devices.get(0x441);
+		dev2.setSensorTarget(0, 0, 0x440, 0);
+		dev2.setSensorTarget(1, 1, 0x440, 1);
+		dev1.setInputJoint(false);
 	}
 
 	public void addBroadcastHandler(final BroadcastHandler handler) {

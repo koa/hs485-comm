@@ -91,6 +91,20 @@ public abstract class Device {
 			scheduleNextBroadcast(i);
 	}
 
+	public void setInputJoint(final boolean join) {
+		data[0] = join ? (byte) 1 : (byte) 0;
+	}
+
+	public void setSensorTarget(final int place, final int sensor, final int module, final int actor) {
+		final int startAddress = 0x80 + place * 6;
+		data[startAddress] = (byte) (sensor & 0xff);
+		data[startAddress + 1] = (byte) (module >> 24 & 0xff);
+		data[startAddress + 2] = (byte) (module >> 16 & 0xff);
+		data[startAddress + 3] = (byte) (module >> 8 & 0xff);
+		data[startAddress + 4] = (byte) (module & 0xff);
+		data[startAddress + 5] = (byte) (actor & 0xff);
+	}
+
 	public synchronized void writeActor(final byte actorNr, final byte value) {
 		actor[actorNr] = value;
 	}
