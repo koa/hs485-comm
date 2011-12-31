@@ -6,9 +6,9 @@ import java.util.concurrent.TimeUnit;
 
 import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
+import ch.eleveneye.hs485.api.data.KeyMessage;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
-import ch.eleveneye.hs485.protocol.IMessage;
 
 /**
  * Abstract Dummy-Device for Test
@@ -19,7 +19,7 @@ public abstract class Device {
 	protected byte[]									data				= new byte[512];
 	private final int									address;
 	private ScheduledExecutorService	executorService;
-	private final MessageHandler		handler;
+	private final MessageHandler			handler;
 	private final boolean[]						keyPressed	= new boolean[] { false, false };
 
 	public Device(final int actorCount, final int address, final MessageHandler handler) {
@@ -128,17 +128,14 @@ public abstract class Device {
 
 			@Override
 			public void run() {
-				final IMessage msg = new IMessage();
-				msg.setSourceAddress(address);
-				msg.setTargetAddress(-1);
-				msg.setSync(true);
-				msg.setSenderNumber((byte) (1 & 0x03));
-				msg.setReceiveNumber((byte) 0);
-				msg.setHasSourceAddr(true);
-				msg.setData(new byte[] { 'K', (byte) keyNr, 0, (byte) (keyPressed[keyNr] ? 2 : 0) });
+				final KeyMessage keyMessage = new KeyMessage();
+				keyMessage.setSourceAddress(address);
+				keyMessage.setTargetAddress(-1);
+				keyMessage.setSourceSensor(0);
+				keyMessage.setTargetActor(keyPressed[keyNr] ? 2 : 0);
 				scheduleNextBroadcast(keyNr);
 				keyPressed[keyNr] = !keyPressed[keyNr];
-				handler.handleMessage(msg);
+				handler.handleMessage(keyMessage);
 			}
 		}, time, waitTimeUnit);
 	}

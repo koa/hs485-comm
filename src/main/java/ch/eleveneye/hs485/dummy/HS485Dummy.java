@@ -11,13 +11,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import ch.eleveneye.hs485.api.HS485;
 import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
+import ch.eleveneye.hs485.api.data.KeyMessage;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
 import ch.eleveneye.hs485.dummy.device.Device;
 import ch.eleveneye.hs485.dummy.device.HS485D;
 import ch.eleveneye.hs485.dummy.device.HS485S;
 import ch.eleveneye.hs485.dummy.device.TFS;
-import ch.eleveneye.hs485.protocol.IMessage;
 
 public class HS485Dummy implements HS485, MessageHandler {
 	ScheduledExecutorService						executorService		= Executors.newScheduledThreadPool(3);
@@ -57,7 +57,7 @@ public class HS485Dummy implements HS485, MessageHandler {
 	}
 
 	@Override
-	public void handleMessage(final IMessage message) {
+	public void handleMessage(final KeyMessage message) {
 		for (final MessageHandler handler : broadcasHandlers)
 			handler.handleMessage(message);
 	}
@@ -110,6 +110,12 @@ public class HS485Dummy implements HS485, MessageHandler {
 	@Override
 	public void resetModule(final int address) throws IOException {
 		// Not needed for emulate Module
+	}
+
+	@Override
+	public void sendKeyMessage(final KeyMessage keyMessage) {
+		// TODO Auto-generated method stub
+
 	}
 
 	@Override

@@ -3,15 +3,11 @@ package ch.eleveneye.hs485.protocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.eleveneye.hs485.api.data.KeyEventType;
+import ch.eleveneye.hs485.api.data.KeyMessage;
+import ch.eleveneye.hs485.api.data.KeyType;
+
 public class IMessage extends HS485Message {
-	public enum KeyEventType {
-		HOLD, PRESS, RELEASE, UNKNOWN
-	}
-
-	public enum KeyType {
-		DOWN, TOGGLE, UNKNOWN, UP
-	}
-
 	private static final Logger	logger	= LoggerFactory.getLogger(IMessage.class);
 
 	public static KeyEventType decodeEventType(final byte keyValue) {
@@ -55,6 +51,22 @@ public class IMessage extends HS485Message {
 	protected byte		senderNumber;
 
 	protected boolean	sync;
+
+	public KeyMessage buildKeyMessage() {
+		if (data.length != 4)
+			return null;
+		if (data[0] != 'K')
+			return null;
+		final KeyMessage keyMessage = new KeyMessage();
+		keyMessage.setSourceAddress(getSourceAddress());
+		keyMessage.setSourceSensor(data[1]);
+		keyMessage.setTargetAddress(getTargetAddress());
+		keyMessage.setTargetActor(data[2]);
+		keyMessage.setKeyEventType(readKeyEventType());
+		keyMessage.setHitCount(readKeyPressCount());
+		keyMessage.setKeyType(readKeyType());
+		return keyMessage;
+	}
 
 	public byte[] getData() {
 		return data;

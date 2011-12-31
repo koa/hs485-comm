@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import ch.eleveneye.hs485.api.HS485;
 import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
+import ch.eleveneye.hs485.api.data.KeyMessage;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
@@ -70,23 +72,24 @@ public class HS485Impl implements HS485 {
 						executorService.execute(new Runnable() {
 							@Override
 							public void run() {
-								final EventIndex handlerIndex = new EventIndex(packet.getSourceAddress(), data[1]);
+								final KeyMessage keyMessage = iMsg.buildKeyMessage();
+								final EventIndex handlerIndex = new EventIndex(keyMessage.getSourceAddress(), keyMessage.getSourceSensor());
 								final MessageHandler handler = keyEventHandlers.get(handlerIndex);
 								if (handler == null) {
 									if (packet.getTargetAddress() == ownAddress) {
 										doAck(iMsg);
 										try {
-											unRegisterEventAt(packet.getSourceAddress(), data[1], data[2]);
+											unRegisterEventAt(keyMessage.getSourceAddress(), (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor());
 										} catch (final IOException e) {
 											log.warn(
 													"Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + "," + data[2], e);
 										}
 									} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
-										handleBroadcast(iMsg);
+										handleBroadcast(keyMessage);
 
 								} else {
 									doAck(iMsg);
-									handler.handleMessage(iMsg);
+									handler.handleMessage(keyMessage);
 								}
 							}
 						});
@@ -98,8 +101,8 @@ public class HS485Impl implements HS485 {
 						oldQueue.add(iMsg);
 					else
 						newQueue.add(iMsg);
-				} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
-					handleBroadcast(iMsg);
+				} // else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
+				// handleBroadcast(iMsg);
 
 			} else if (packet instanceof ACKMessage && packet.getTargetAddress() == ownAddress) {
 				final ACKMessage ackPacket = (ACKMessage) packet; // handle
@@ -134,7 +137,7 @@ public class HS485Impl implements HS485 {
 
 	private RXTXPort																						commPort;
 
-	private int																									currentSenderNumber;
+	private final AtomicInteger																	currentSenderNumber		= new AtomicInteger(0);
 
 	private PacketDecoder																				decoder;
 
@@ -155,7 +158,6 @@ public class HS485Impl implements HS485 {
 
 	public HS485Impl(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
 		init(port, myAddress);
-		currentSenderNumber = 0;
 	}
 
 	@Override
@@ -169,13 +171,13 @@ public class HS485Impl implements HS485 {
 		keyEventHandlers.put(eventIndex, handler);
 	}
 
-	public void handleBroadcast(final IMessage iMsg) {
+	public void handleBroadcast(final KeyMessage keyMessage) {
 		executorService.execute(new Runnable() {
 
 			@Override
 			public void run() {
 				for (final MessageHandler handler : broadcastHandlers)
-					handler.handleMessage(iMsg);
+					handler.handleMessage(keyMessage);
 			}
 		});
 	}
@@ -306,6 +308,35 @@ public class HS485Impl implements HS485 {
 		sendAndWaitForAck(msg);
 	}
 
+	@Override
+	public void sendKeyMessage(final KeyMessage keyMessage) throws IOException {
+		final IMessage msg = prepareIMessage(keyMessage.getTargetAddress());
+		byte eventByte = 0;
+		switch (keyMessage.getKeyEventType()) {
+		case PRESS:
+			break;
+		case HOLD:
+			eventByte += 1;
+			break;
+		case RELEASE:
+			eventByte += 2;
+			break;
+		}
+		eventByte += (keyMessage.getHitCount() & 0x3) << 2;
+		switch (keyMessage.getKeyType()) {
+		case TOGGLE:
+			break;
+		case UP:
+			eventByte += 1 << 4;
+			break;
+		case DOWN:
+			eventByte += 2 << 4;
+			break;
+		}
+		msg.setData(new byte[] { 'K', (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor(), eventByte });
+		sendAndWaitForAck(msg);
+	}
+
 	public void setExecutorService(final ExecutorService executorService) {
 		this.executorService = executorService;
 	}
@@ -373,9 +404,11 @@ public class HS485Impl implements HS485 {
 		msg.setSourceAddress(ownAddress);
 		msg.setTargetAddress(moduleAddress);
 		msg.setSync(true);
-		msg.setSenderNumber((byte) (currentSenderNumber-- & 0x03));
+		msg.setSenderNumber((byte) (currentSenderNumber.decrementAndGet() & 0x03));
 		msg.setReceiveNumber((byte) 0);
 		msg.setHasSourceAddr(true);
+		if (currentSenderNumber.get() < 0)
+			currentSenderNumber.addAndGet(64);
 		return msg;
 	}
 
