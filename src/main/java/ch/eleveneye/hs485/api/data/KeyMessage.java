@@ -68,13 +68,13 @@ public class KeyMessage {
 	@Override
 	public String toString() {
 		final StringBuilder builder = new StringBuilder();
-		builder.append("KeyMessage [sourceAddress=");
-		builder.append(sourceAddress);
-		builder.append(", sourceSensor=");
+		builder.append("KeyMessage [source=");
+		builder.append(Integer.toHexString(sourceAddress));
+		builder.append(":");
 		builder.append(sourceSensor);
-		builder.append(", targetAddress=");
-		builder.append(targetAddress);
-		builder.append(", targetActor=");
+		builder.append(", target=");
+		builder.append(Integer.toHexString(targetAddress));
+		builder.append(":");
 		builder.append(targetActor);
 		builder.append(", ");
 		if (keyType != null) {
