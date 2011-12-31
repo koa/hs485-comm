@@ -6,7 +6,9 @@ import java.util.concurrent.TimeUnit;
 
 import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
+import ch.eleveneye.hs485.api.data.KeyEventType;
 import ch.eleveneye.hs485.api.data.KeyMessage;
+import ch.eleveneye.hs485.api.data.KeyType;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
 
@@ -132,7 +134,9 @@ public abstract class Device {
 				keyMessage.setSourceAddress(address);
 				keyMessage.setTargetAddress(-1);
 				keyMessage.setSourceSensor(0);
-				keyMessage.setTargetActor(keyPressed[keyNr] ? 2 : 0);
+				keyMessage.setTargetActor(0);
+				keyMessage.setKeyEventType(keyPressed[keyNr] ? KeyEventType.RELEASE : KeyEventType.PRESS);
+				keyMessage.setKeyType(KeyType.TOGGLE);
 				scheduleNextBroadcast(keyNr);
 				keyPressed[keyNr] = !keyPressed[keyNr];
 				handler.handleMessage(keyMessage);
