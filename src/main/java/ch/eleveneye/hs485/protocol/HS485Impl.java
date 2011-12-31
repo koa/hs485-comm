@@ -22,12 +22,11 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ch.eleveneye.hs485.api.BroadcastHandler;
 import ch.eleveneye.hs485.api.HS485;
+import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
-import ch.eleveneye.hs485.event.EventHandler;
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 
 public class HS485Impl implements HS485 {
@@ -38,6 +37,7 @@ public class HS485Impl implements HS485 {
 			this.origMessage = origMessage;
 		}
 
+		@Override
 		public void run() {
 			try {
 				sendAck(origMessage);
@@ -51,6 +51,7 @@ public class HS485Impl implements HS485 {
 
 	private class DataHandler implements RawDataHandler {
 
+		@Override
 		public void handleClientList(final List<Integer> clients) {
 			synchronized (clientListMutex) {
 				clientList = clients;
@@ -59,46 +60,36 @@ public class HS485Impl implements HS485 {
 
 		}
 
+		@Override
 		public void handleLongPacket(final HS485Message packet) {
 			if (packet instanceof IMessage) {
 				final IMessage iMsg = (IMessage) packet;
 				if (iMsg.isSync()) {
 					final byte[] data = iMsg.getData();
-					if (data.length == 4 && data[0] == 'K') {
-						final EventIndex handlerIndex = new EventIndex(packet.getTargetAddress(), data[2]);
-						synchronized (keyEventHandlers) {
-							final EventHandler handler = keyEventHandlers.get(handlerIndex);
-							if (handler == null) {
-								if (packet.getTargetAddress() == ownAddress) {
-									doAck(iMsg);
-									executorService.execute(new Runnable() {
-										public void run() {
-											try {
-												unRegisterEventAt(packet.getSourceAddress(), data[1], data[2]);
-											} catch (final IOException e) {
-												log.warn("Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + ","
-														+ data[2], e);
-											}
-										}
-									});
-								} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
-									handleBroadcast(iMsg);
-
-							} else {
-								doAck(iMsg);
-								final byte eventByte = data[3];
-								executorService.execute(new Runnable() {
-									public void run() {
+					if (data.length == 4 && data[0] == 'K')
+						executorService.execute(new Runnable() {
+							@Override
+							public void run() {
+								final EventIndex handlerIndex = new EventIndex(packet.getTargetAddress(), data[2]);
+								final MessageHandler handler = keyEventHandlers.get(handlerIndex);
+								if (handler == null) {
+									if (packet.getTargetAddress() == ownAddress) {
+										doAck(iMsg);
 										try {
-											handler.doEvent(eventByte);
+											unRegisterEventAt(packet.getSourceAddress(), data[1], data[2]);
 										} catch (final IOException e) {
-											log.error("Fehler bei der Eventverarbeitung", e);
+											log.warn(
+													"Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + "," + data[2], e);
 										}
-									}
-								});
+									} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
+										handleBroadcast(iMsg);
+
+								} else {
+									doAck(iMsg);
+									handler.handleMessage(iMsg);
+								}
 							}
-						}
-					}
+						});
 				} else if (packet.getTargetAddress() == ownAddress) {
 					final AckIndex key = new AckIndex(iMsg.getSourceAddress(), iMsg.getReceiveNumber());
 					final BlockingQueue<IMessage> newQueue = new LinkedBlockingQueue<IMessage>();
@@ -135,7 +126,7 @@ public class HS485Impl implements HS485 {
 
 	private static final int																		PACKET_WAIT_TIME			= 200;
 
-	private final Collection<BroadcastHandler>									broadcastHandlers			= new ConcurrentLinkedQueue<BroadcastHandler>();
+	private final Collection<MessageHandler>										broadcastHandlers			= new ConcurrentLinkedQueue<MessageHandler>();
 
 	private List<Integer>																				clientList;
 
@@ -153,7 +144,7 @@ public class HS485Impl implements HS485 {
 
 	private ConcurrentMap<AckIndex, BlockingQueue<IMessage>>		expectedReceiveQueue;
 
-	private Map<EventIndex, EventHandler>												keyEventHandlers;
+	private Map<EventIndex, MessageHandler>											keyEventHandlers;
 
 	private long																								lastClientListUpdate	= 0;
 
@@ -167,11 +158,13 @@ public class HS485Impl implements HS485 {
 		currentSenderNumber = 0;
 	}
 
-	public void addBroadcastHandler(final BroadcastHandler handler) {
+	@Override
+	public void addBroadcastHandler(final MessageHandler handler) {
 		broadcastHandlers.add(handler);
 	}
 
-	public void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException {
+	@Override
+	public void addKeyHandler(final int targetAddress, final byte actorNr, final MessageHandler handler) throws IOException {
 		final EventIndex eventIndex = new EventIndex(targetAddress, actorNr);
 		keyEventHandlers.put(eventIndex, handler);
 	}
@@ -179,13 +172,15 @@ public class HS485Impl implements HS485 {
 	public void handleBroadcast(final IMessage iMsg) {
 		executorService.execute(new Runnable() {
 
+			@Override
 			public void run() {
-				for (final BroadcastHandler handler : broadcastHandlers)
-					handler.handleBroadcastMessage(iMsg);
+				for (final MessageHandler handler : broadcastHandlers)
+					handler.handleMessage(iMsg);
 			}
 		});
 	}
 
+	@Override
 	public List<Integer> listClients() throws IOException {
 		synchronized (readClientListMutex) {
 
@@ -212,10 +207,12 @@ public class HS485Impl implements HS485 {
 		}
 	}
 
+	@Override
 	public int[] listOwnAddresse() {
 		return new int[] { ownAddress };
 	}
 
+	@Override
 	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
 		final IMessage msg = prepareIMessage(moduleAddress);
 		final byte[] data = new byte[] { 'S', actor };
@@ -226,6 +223,7 @@ public class HS485Impl implements HS485 {
 
 	}
 
+	@Override
 	public HwVer readHwVer(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'h' });
@@ -235,6 +233,7 @@ public class HS485Impl implements HS485 {
 		return new HwVer(answerData[0], answerData[1]);
 	}
 
+	@Override
 	public int readLux(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'L' });
@@ -244,6 +243,7 @@ public class HS485Impl implements HS485 {
 		return (answerData[0] & 0xff) << 24 | (answerData[1] & 0xff) << 16 | (answerData[2] & 0xff) << 8 | answerData[3] & 0xff;
 	}
 
+	@Override
 	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
 		final byte[] ret = new byte[count];
 		int partOffset = 0;
@@ -257,6 +257,7 @@ public class HS485Impl implements HS485 {
 		return ret;
 	}
 
+	@Override
 	public SwVer readSwVer(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'v' });
@@ -271,6 +272,7 @@ public class HS485Impl implements HS485 {
 		return new SwVer(answerData[0], answerData[1]);
 	}
 
+	@Override
 	public TFSValue readTemp(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'F' });
@@ -290,12 +292,14 @@ public class HS485Impl implements HS485 {
 		sendAndWaitForAck(msg);
 	}
 
+	@Override
 	public void reloadModule(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'C' });
 		sendAndWaitForAck(msg);
 	}
 
+	@Override
 	public void resetModule(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { '!', '!' });
@@ -313,6 +317,7 @@ public class HS485Impl implements HS485 {
 		sendAndWaitForAck(msg);
 	}
 
+	@Override
 	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
 		final IMessage msg = prepareIMessage(moduleAddress);
 		final byte[] data = new byte[] { 's', 0, actor, action };
@@ -320,6 +325,7 @@ public class HS485Impl implements HS485 {
 		sendAndWaitForAck(msg);
 	}
 
+	@Override
 	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
 			throws IOException {
 		int partOffset = 0;
@@ -342,7 +348,7 @@ public class HS485Impl implements HS485 {
 		ownAddress = myAddress;
 		receivedAckMessages = new ConcurrentHashMap<AckIndex, BlockingQueue<ACKMessage>>();
 		expectedReceiveQueue = new ConcurrentHashMap<AckIndex, BlockingQueue<IMessage>>();
-		keyEventHandlers = new ConcurrentHashMap<EventIndex, EventHandler>();
+		keyEventHandlers = new ConcurrentHashMap<EventIndex, MessageHandler>();
 
 		final RXTXCommDriver commDriver = new RXTXCommDriver();
 		commDriver.initialize();
@@ -399,6 +405,7 @@ public class HS485Impl implements HS485 {
 			receivedAckMessages.putIfAbsent(ackIndex, new LinkedBlockingQueue<ACKMessage>());
 			final BlockingQueue<ACKMessage> queue = receivedAckMessages.get(ackIndex);
 			synchronized (queue) {
+				queue.clear();
 				// wait always once per target and ack-number
 				for (int i = 0; i < PACKET_REPEAT_COUNT; i++)
 					try {
@@ -431,6 +438,7 @@ public class HS485Impl implements HS485 {
 			else
 				receiveQueue = newQueue;
 			synchronized (receiveQueue) {
+				receiveQueue.clear();
 				// do not send more than one request concurrent to one target
 				for (int i = 0; i < PACKET_REPEAT_COUNT; i++) {
 					encoder.sendPacket(msg);

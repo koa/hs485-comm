@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import ch.eleveneye.hs485.api.BroadcastHandler;
+import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
@@ -19,10 +19,10 @@ public abstract class Device {
 	protected byte[]									data				= new byte[512];
 	private final int									address;
 	private ScheduledExecutorService	executorService;
-	private final BroadcastHandler		handler;
+	private final MessageHandler		handler;
 	private final boolean[]						keyPressed	= new boolean[] { false, false };
 
-	public Device(final int actorCount, final int address, final BroadcastHandler handler) {
+	public Device(final int actorCount, final int address, final MessageHandler handler) {
 		this.address = address;
 		this.handler = handler;
 		actor = new byte[actorCount];
@@ -137,7 +137,7 @@ public abstract class Device {
 				msg.setData(new byte[] { 'K', (byte) keyNr, 0, (byte) (keyPressed[keyNr] ? 2 : 0) });
 				scheduleNextBroadcast(keyNr);
 				keyPressed[keyNr] = !keyPressed[keyNr];
-				handler.handleBroadcastMessage(msg);
+				handler.handleMessage(msg);
 			}
 		}, time, waitTimeUnit);
 	}

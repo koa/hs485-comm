@@ -6,13 +6,12 @@ import java.util.List;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
-import ch.eleveneye.hs485.event.EventHandler;
 
 public interface HS485 {
 
-	public void addBroadcastHandler(final BroadcastHandler handler);
+	public void addBroadcastHandler(final MessageHandler handler);
 
-	public abstract void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException;
+	public abstract void addKeyHandler(final int moduleAddress, final byte sensorNr, final MessageHandler handler) throws IOException;
 
 	public abstract List<Integer> listClients() throws IOException;
 

@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import ch.eleveneye.hs485.api.BroadcastHandler;
 import ch.eleveneye.hs485.api.HS485;
+import ch.eleveneye.hs485.api.MessageHandler;
 import ch.eleveneye.hs485.api.data.HwVer;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
@@ -17,13 +17,12 @@ import ch.eleveneye.hs485.dummy.device.Device;
 import ch.eleveneye.hs485.dummy.device.HS485D;
 import ch.eleveneye.hs485.dummy.device.HS485S;
 import ch.eleveneye.hs485.dummy.device.TFS;
-import ch.eleveneye.hs485.event.EventHandler;
 import ch.eleveneye.hs485.protocol.IMessage;
 
-public class HS485Dummy implements HS485, BroadcastHandler {
-	ScheduledExecutorService							executorService		= Executors.newScheduledThreadPool(3);
-	private final List<BroadcastHandler>	broadcasHandlers	= new ArrayList<BroadcastHandler>();
-	private final Map<Integer, Device>		devices						= new HashMap<Integer, Device>();
+public class HS485Dummy implements HS485, MessageHandler {
+	ScheduledExecutorService						executorService		= Executors.newScheduledThreadPool(3);
+	private final List<MessageHandler>	broadcasHandlers	= new ArrayList<MessageHandler>();
+	private final Map<Integer, Device>	devices						= new HashMap<Integer, Device>();
 
 	public HS485Dummy() {
 		addHS485S(0x440);
@@ -46,64 +45,79 @@ public class HS485Dummy implements HS485, BroadcastHandler {
 		dev1.setInputJoint(false);
 	}
 
-	public void addBroadcastHandler(final BroadcastHandler handler) {
+	@Override
+	public void addBroadcastHandler(final MessageHandler handler) {
 		broadcasHandlers.add(handler);
 	}
 
-	public void addKeyHandler(final int targetAddress, final byte actorNr, final EventHandler handler) throws IOException {
+	@Override
+	public void addKeyHandler(final int targetAddress, final byte actorNr, final MessageHandler handler) throws IOException {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void handleBroadcastMessage(final IMessage message) {
-		for (final BroadcastHandler handler : broadcasHandlers)
-			handler.handleBroadcastMessage(message);
+	@Override
+	public void handleMessage(final IMessage message) {
+		for (final MessageHandler handler : broadcasHandlers)
+			handler.handleMessage(message);
 	}
 
+	@Override
 	public List<Integer> listClients() throws IOException {
 		return new ArrayList<Integer>(devices.keySet());
 	}
 
+	@Override
 	public int[] listOwnAddresse() {
 		return new int[] { 3 };
 	}
 
+	@Override
 	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
 		return devices.get(moduleAddress).readActor(actor);
 	}
 
+	@Override
 	public HwVer readHwVer(final int address) throws IOException {
 		return devices.get(address).readHwVer();
 	}
 
+	@Override
 	public int readLux(final int address) throws IOException {
 		return devices.get(address).readLux();
 	}
 
+	@Override
 	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
 		return devices.get(address).readModuleEEPROM(count);
 	}
 
+	@Override
 	public SwVer readSwVer(final int address) throws IOException {
 		return devices.get(address).readSwVer();
 	}
 
+	@Override
 	public TFSValue readTemp(final int address) throws IOException {
 		return devices.get(address).readTemp();
 	}
 
+	@Override
 	public void reloadModule(final int address) throws IOException {
 		// Not needed for emulate Module
 	}
 
+	@Override
 	public void resetModule(final int address) throws IOException {
 		// Not needed for emulate Module
 	}
 
+	@Override
 	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
 		devices.get(moduleAddress).writeActor(actor, action);
 	}
 
+	@Override
 	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
 			throws IOException {
 		devices.get(deviceAddress).writeEEPROM(memOffset, data, dataOffset, length);
