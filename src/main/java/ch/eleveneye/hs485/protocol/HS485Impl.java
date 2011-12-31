@@ -70,7 +70,7 @@ public class HS485Impl implements HS485 {
 						executorService.execute(new Runnable() {
 							@Override
 							public void run() {
-								final EventIndex handlerIndex = new EventIndex(packet.getTargetAddress(), data[2]);
+								final EventIndex handlerIndex = new EventIndex(packet.getSourceAddress(), data[1]);
 								final MessageHandler handler = keyEventHandlers.get(handlerIndex);
 								if (handler == null) {
 									if (packet.getTargetAddress() == ownAddress) {
@@ -164,8 +164,8 @@ public class HS485Impl implements HS485 {
 	}
 
 	@Override
-	public void addKeyHandler(final int targetAddress, final byte actorNr, final MessageHandler handler) throws IOException {
-		final EventIndex eventIndex = new EventIndex(targetAddress, actorNr);
+	public void addKeyHandler(final int sourceAddress, final byte sensorNr, final MessageHandler handler) throws IOException {
+		final EventIndex eventIndex = new EventIndex(sourceAddress, sensorNr);
 		keyEventHandlers.put(eventIndex, handler);
 	}
 
