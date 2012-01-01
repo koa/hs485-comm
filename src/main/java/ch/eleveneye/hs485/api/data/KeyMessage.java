@@ -1,5 +1,6 @@
 package ch.eleveneye.hs485.api.data;
 
+
 public class KeyMessage {
 	private KeyEventType	keyEventType;
 	private KeyType				keyType;
@@ -8,6 +9,19 @@ public class KeyMessage {
 	private int						targetActor;
 	private int						targetAddress;
 	private int						hitCount;
+
+	public KeyMessage() {
+	}
+
+	public KeyMessage(final KeyMessage template) {
+		keyEventType = template.keyEventType;
+		keyType = template.keyType;
+		sourceAddress = template.sourceAddress;
+		sourceSensor = template.sourceSensor;
+		targetActor = template.targetActor;
+		targetAddress = template.targetAddress;
+		hitCount = template.hitCount;
+	}
 
 	public int getHitCount() {
 		return hitCount;
