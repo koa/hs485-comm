@@ -108,6 +108,12 @@ public class HS485Dummy implements HS485, MessageHandler {
 	}
 
 	@Override
+	public void removeHandlers() {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
 	public void resetModule(final int address) throws IOException {
 		// Not needed for emulate Module
 	}

@@ -302,6 +302,12 @@ public class HS485Impl implements HS485 {
 	}
 
 	@Override
+	public void removeHandlers() {
+		keyEventHandlers.clear();
+		broadcastHandlers.clear();
+	}
+
+	@Override
 	public void resetModule(final int address) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { '!', '!' });

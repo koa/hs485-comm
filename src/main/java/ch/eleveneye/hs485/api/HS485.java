@@ -32,6 +32,8 @@ public interface HS485 {
 
 	void reloadModule(final int address) throws IOException;
 
+	void removeHandlers();
+
 	void resetModule(final int address) throws IOException;
 
 	void sendKeyMessage(KeyMessage keyMessage) throws IOException;
