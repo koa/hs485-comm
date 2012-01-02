@@ -65,6 +65,7 @@ public class PacketEncoder {
 			rawData[6] = (byte) (senderAddress >> 16 & 0xff);
 			rawData[7] = (byte) (senderAddress >> 8 & 0xff);
 			rawData[8] = (byte) (senderAddress & 0xff);
+
 		}
 		sendRawPacket(true, rawData);
 		log.trace("{}", msg);

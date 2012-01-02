@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,13 +93,13 @@ public class PacketDecoder {
 								// war letztes Zeichen -> Packet dekodieren
 								crc.shift(0);
 								crc.shift(0);
+								setLastPacketReceived(System.currentTimeMillis());
+								setReceivingPacket(false);
 								if (crc.checkCRC())
 									handlePacket(buffer, readPtr, lengthPos, shortPacket);
 								else
 									log.warn("CRC-Error");
 								readPtr = -1;
-								setLastPacketReceived(System.currentTimeMillis());
-								setReceivingPacket(false);
 							}
 						} else {
 							// Byte ausserhalb eines Packetes
@@ -143,7 +144,7 @@ public class PacketDecoder {
 
 	InputStream							inStream;
 
-	long										lastPacketReceived	= 0;
+	AtomicLong							lastPacketReceived	= new AtomicLong(0);
 
 	ReaderThread						myThread;
 
@@ -173,12 +174,12 @@ public class PacketDecoder {
 		}
 	}
 
-	public synchronized long getLastPacketReceived() {
-		return lastPacketReceived;
+	public long getLastPacketReceived() {
+		return lastPacketReceived.get();
 	}
 
 	public boolean isBusFree() {
-		final int randomDelay = (int) Math.random() * 30 + 3;
+		final int randomDelay = 4;
 		return !isReceivingPacket() && getLastPacketReceived() + randomDelay < System.currentTimeMillis();
 	}
 
@@ -186,8 +187,8 @@ public class PacketDecoder {
 		return receivingPacket;
 	}
 
-	public synchronized void setLastPacketReceived(final long lastPacketReceived) {
-		this.lastPacketReceived = lastPacketReceived;
+	public void setLastPacketReceived(final long lastPacketReceived) {
+		this.lastPacketReceived.set(lastPacketReceived);
 	}
 
 	public synchronized void setReceivingPacket(final boolean receivingPacket) {

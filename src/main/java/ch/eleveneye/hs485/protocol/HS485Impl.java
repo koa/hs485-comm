@@ -64,36 +64,35 @@ public class HS485Impl implements HS485 {
 
 		@Override
 		public void handleLongPacket(final HS485Message packet) {
+
 			if (packet instanceof IMessage) {
 				final IMessage iMsg = (IMessage) packet;
-				if (iMsg.isSync()) {
-					final byte[] data = iMsg.getData();
-					if (data.length == 4 && data[0] == 'K')
-						executorService.execute(new Runnable() {
-							@Override
-							public void run() {
-								final KeyMessage keyMessage = iMsg.buildKeyMessage();
-								final EventIndex handlerIndex = new EventIndex(keyMessage.getSourceAddress(), keyMessage.getSourceSensor());
-								final MessageHandler handler = keyEventHandlers.get(handlerIndex);
-								if (handler == null) {
-									if (packet.getTargetAddress() == ownAddress) {
-										doAck(iMsg);
-										try {
-											unRegisterEventAt(keyMessage.getSourceAddress(), (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor());
-										} catch (final IOException e) {
-											log.warn(
-													"Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + "," + data[2], e);
-										}
-									} else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
-										handleBroadcast(keyMessage);
+				final byte[] data = iMsg.getData();
+				if (data.length == 4 && data[0] == 'K') {
+					if (packet.getTargetAddress() == ownAddress)
+						doAck(iMsg);
+					executorService.execute(new Runnable() {
+						@Override
+						public void run() {
+							final KeyMessage keyMessage = iMsg.buildKeyMessage();
+							final EventIndex handlerIndex = new EventIndex(keyMessage.getSourceAddress(), keyMessage.getSourceSensor());
+							final MessageHandler handler = keyEventHandlers.get(handlerIndex);
+							if (handler == null) {
+								if (packet.getTargetAddress() == ownAddress)
+									try {
+										unRegisterEventAt(keyMessage.getSourceAddress(), (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor());
+									} catch (final IOException e) {
+										log.warn("Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + "," + data[2],
+												e);
+									}
+								else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
+									handleBroadcast(keyMessage);
 
-								} else {
-									doAck(iMsg);
-									handler.handleMessage(keyMessage);
-								}
-							}
-						});
-				} else if (packet.getTargetAddress() == ownAddress) {
+							} else if (packet.getTargetAddress() == ownAddress)
+								handler.handleMessage(keyMessage);
+						}
+					});
+				} else if (!iMsg.isSync() && packet.getTargetAddress() == ownAddress) {
 					final AckIndex key = new AckIndex(iMsg.getSourceAddress(), iMsg.getReceiveNumber());
 					final BlockingQueue<IMessage> newQueue = new LinkedBlockingQueue<IMessage>();
 					final BlockingQueue<IMessage> oldQueue = expectedReceiveQueue.putIfAbsent(key, newQueue);
@@ -115,7 +114,12 @@ public class HS485Impl implements HS485 {
 		}
 
 		private void doAck(final IMessage iMsg) {
-			executorService.execute(new AckRunnable(iMsg));
+			try {
+				sendAck(iMsg);
+			} catch (final IOException e) {
+				log.warn("Konnte Ack nicht schicken", e);
+			}
+			// executorService.execute(new AckRunnable(iMsg));
 		}
 	}
 
@@ -462,7 +466,6 @@ public class HS485Impl implements HS485 {
 	}
 
 	private IMessage sendAndWaitForAnswer(final IMessage msg) throws IOException {
-
 		final byte origSenderNumber = msg.getSenderNumber();
 		for (int k = 0; k < INC_REPEAT_COUNT; k++) {
 			final byte tempSenderNummer = (byte) (origSenderNumber + k & 0x3);
