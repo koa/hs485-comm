@@ -182,6 +182,7 @@ public class HS485Impl implements HS485 {
 	public void close() throws IOException {
 		decoder.close();
 		encoder.close();
+		commPort.close();
 	}
 
 	public void handleBroadcast(final KeyMessage keyMessage) {
