@@ -83,12 +83,7 @@ public class HS485Impl implements HS485 {
 							final MessageHandler handler = keyEventHandlers.get(handlerIndex);
 							if (handler == null) {
 								if (packet.getTargetAddress() == ownAddress)
-									try {
-										unRegisterEventAt(keyMessage.getSourceAddress(), (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor());
-									} catch (final IOException e) {
-										log.warn("Konnte Event nicht deregistrieren: " + Integer.toHexString(packet.getSourceAddress()) + "," + data[1] + "," + data[2],
-												e);
-									}
+									log.warn("No handler for " + handlerIndex);
 								else if (packet.getTargetAddress() == BROADCAST_ADDRESS)
 									handleBroadcast(keyMessage);
 
