@@ -1,5 +1,6 @@
 package ch.eleveneye.hs485.protocol;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -13,7 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 
-public class PacketDecoder {
+public class PacketDecoder implements Closeable {
 	class ReaderThread extends Thread {
 
 		private boolean	running	= true;
@@ -172,6 +173,12 @@ public class PacketDecoder {
 		synchronized (clientListListeners) {
 			clientListListeners.add(handler);
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		myThread.setRunning(false);
+		inStream.close();
 	}
 
 	public long getLastPacketReceived() {

@@ -1,12 +1,13 @@
 package ch.eleveneye.hs485.protocol;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PacketEncoder {
+public class PacketEncoder implements Closeable {
 	private static final Logger	log	= LoggerFactory.getLogger(PacketEncoder.class);
 
 	PacketDecoder								decoder;
@@ -18,6 +19,11 @@ public class PacketEncoder {
 	public PacketEncoder(final OutputStream outStream, final PacketDecoder decoder) {
 		this.outStream = outStream;
 		this.decoder = decoder;
+	}
+
+	@Override
+	public void close() throws IOException {
+		outStream.close();
 	}
 
 	public void initiateDiscovering() throws IOException {

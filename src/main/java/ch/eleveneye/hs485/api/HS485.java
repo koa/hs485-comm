@@ -1,5 +1,6 @@
 package ch.eleveneye.hs485.api;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
@@ -8,7 +9,7 @@ import ch.eleveneye.hs485.api.data.KeyMessage;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
 
-public interface HS485 {
+public interface HS485 extends Closeable {
 
 	void addBroadcastHandler(final MessageHandler handler);
 

@@ -172,7 +172,16 @@ public class HS485Impl implements HS485 {
 	@Override
 	public void addKeyHandler(final int sourceAddress, final byte sensorNr, final MessageHandler handler) throws IOException {
 		final EventIndex eventIndex = new EventIndex(sourceAddress, sensorNr);
-		keyEventHandlers.put(eventIndex, handler);
+		if (handler != null)
+			keyEventHandlers.put(eventIndex, handler);
+		else
+			keyEventHandlers.remove(eventIndex);
+	}
+
+	@Override
+	public void close() throws IOException {
+		decoder.close();
+		encoder.close();
 	}
 
 	public void handleBroadcast(final KeyMessage keyMessage) {

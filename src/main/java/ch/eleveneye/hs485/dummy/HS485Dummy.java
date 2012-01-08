@@ -57,6 +57,11 @@ public class HS485Dummy implements HS485, MessageHandler {
 	}
 
 	@Override
+	public void close() throws IOException {
+		executorService.shutdownNow();
+	}
+
+	@Override
 	public void handleMessage(final KeyMessage message) {
 		for (final MessageHandler handler : broadcasHandlers)
 			handler.handleMessage(message);
