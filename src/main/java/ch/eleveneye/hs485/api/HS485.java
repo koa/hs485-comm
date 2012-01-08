@@ -33,6 +33,8 @@ public interface HS485 extends Closeable {
 
 	void reloadModule(final int address) throws IOException;
 
+	void removeBroadcastHandler(MessageHandler broadcastHandler);
+
 	void removeHandlers();
 
 	void resetModule(final int address) throws IOException;

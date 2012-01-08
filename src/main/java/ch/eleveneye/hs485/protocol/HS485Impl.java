@@ -20,8 +20,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.annotation.PreDestroy;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import ch.eleveneye.hs485.api.HS485;
 import ch.eleveneye.hs485.api.MessageHandler;
@@ -31,6 +34,7 @@ import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 
+@Service
 public class HS485Impl implements HS485 {
 	private class AckRunnable implements Runnable {
 		IMessage	origMessage;
@@ -178,11 +182,13 @@ public class HS485Impl implements HS485 {
 			keyEventHandlers.remove(eventIndex);
 	}
 
+	@PreDestroy
 	@Override
 	public void close() throws IOException {
 		decoder.close();
 		encoder.close();
 		commPort.close();
+		log.info("Bus-Communication closed");
 	}
 
 	public void handleBroadcast(final KeyMessage keyMessage) {
@@ -313,6 +319,12 @@ public class HS485Impl implements HS485 {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'C' });
 		sendAndWaitForAck(msg);
+	}
+
+	@Override
+	public void removeBroadcastHandler(final MessageHandler broadcastHandler) {
+		if (broadcastHandler != null)
+			broadcastHandlers.remove(broadcastHandler);
 	}
 
 	@Override

@@ -113,6 +113,11 @@ public class HS485Dummy implements HS485, MessageHandler {
 	}
 
 	@Override
+	public void removeBroadcastHandler(final MessageHandler broadcastHandler) {
+		broadcasHandlers.remove(broadcastHandler);
+	}
+
+	@Override
 	public void removeHandlers() {
 		// TODO Auto-generated method stub
 
