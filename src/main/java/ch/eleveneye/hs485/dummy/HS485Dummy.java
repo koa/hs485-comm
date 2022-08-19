@@ -45,105 +45,8 @@ public class HS485Dummy implements HS485, MessageHandler {
 		dev1.setInputJoint(false);
 	}
 
-	@Override
 	public void addBroadcastHandler(final MessageHandler handler) {
 		broadcasHandlers.add(handler);
-	}
-
-	@Override
-	public void addKeyHandler(final int targetAddress, final byte actorNr, final MessageHandler handler) throws IOException {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void close() throws IOException {
-		executorService.shutdownNow();
-	}
-
-	@Override
-	public void handleMessage(final KeyMessage message) {
-		for (final MessageHandler handler : broadcasHandlers)
-			handler.handleMessage(message);
-	}
-
-	@Override
-	public List<Integer> listClients() throws IOException {
-		return new ArrayList<Integer>(devices.keySet());
-	}
-
-	@Override
-	public int[] listOwnAddresse() {
-		return new int[] { 3 };
-	}
-
-	@Override
-	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
-		return devices.get(moduleAddress).readActor(actor);
-	}
-
-	@Override
-	public HwVer readHwVer(final int address) throws IOException {
-		return devices.get(address).readHwVer();
-	}
-
-	@Override
-	public int readLux(final int address) throws IOException {
-		return devices.get(address).readLux();
-	}
-
-	@Override
-	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
-		return devices.get(address).readModuleEEPROM(count);
-	}
-
-	@Override
-	public SwVer readSwVer(final int address) throws IOException {
-		return devices.get(address).readSwVer();
-	}
-
-	@Override
-	public TFSValue readTemp(final int address) throws IOException {
-		return devices.get(address).readTemp();
-	}
-
-	@Override
-	public void reloadModule(final int address) throws IOException {
-		// Not needed for emulate Module
-	}
-
-	@Override
-	public void removeBroadcastHandler(final MessageHandler broadcastHandler) {
-		broadcasHandlers.remove(broadcastHandler);
-	}
-
-	@Override
-	public void removeHandlers() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void resetModule(final int address) throws IOException {
-		// Not needed for emulate Module
-	}
-
-	@Override
-	public void sendKeyMessage(final KeyMessage keyMessage) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
-		devices.get(moduleAddress).writeActor(actor, action);
-	}
-
-	@Override
-	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
-			throws IOException {
-		devices.get(deviceAddress).writeEEPROM(memOffset, data, dataOffset, length);
-
 	}
 
 	private void addHS485D(final int address) {
@@ -158,8 +61,86 @@ public class HS485Dummy implements HS485, MessageHandler {
 		devices.put(address, device);
 	}
 
+	public void addKeyHandler(final int targetAddress, final byte actorNr, final MessageHandler handler) throws IOException {
+		// TODO Auto-generated method stub
+
+	}
+
 	private void addTFS(final int address) {
 		devices.put(address, new TFS(address));
+
+	}
+
+	public void close() throws IOException {
+		executorService.shutdownNow();
+	}
+
+	public void handleMessage(final KeyMessage message) {
+		for (final MessageHandler handler : broadcasHandlers)
+			handler.handleMessage(message);
+	}
+
+	public List<Integer> listClients() throws IOException {
+		return new ArrayList<Integer>(devices.keySet());
+	}
+
+	public int[] listOwnAddresse() {
+		return new int[] { 3 };
+	}
+
+	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
+		return devices.get(moduleAddress).readActor(actor);
+	}
+
+	public HwVer readHwVer(final int address) throws IOException {
+		return devices.get(address).readHwVer();
+	}
+
+	public int readLux(final int address) throws IOException {
+		return devices.get(address).readLux();
+	}
+
+	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
+		return devices.get(address).readModuleEEPROM(count);
+	}
+
+	public SwVer readSwVer(final int address) throws IOException {
+		return devices.get(address).readSwVer();
+	}
+
+	public TFSValue readTemp(final int address) throws IOException {
+		return devices.get(address).readTemp();
+	}
+
+	public void reloadModule(final int address) throws IOException {
+		// Not needed for emulate Module
+	}
+
+	public void removeBroadcastHandler(final MessageHandler broadcastHandler) {
+		broadcasHandlers.remove(broadcastHandler);
+	}
+
+	public void removeHandlers() {
+		// TODO Auto-generated method stub
+
+	}
+
+	public void resetModule(final int address) throws IOException {
+		// Not needed for emulate Module
+	}
+
+	public void sendKeyMessage(final KeyMessage keyMessage) {
+		// TODO Auto-generated method stub
+
+	}
+
+	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
+		devices.get(moduleAddress).writeActor(actor, action);
+	}
+
+	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
+			throws IOException {
+		devices.get(deviceAddress).writeEEPROM(memOffset, data, dataOffset, length);
 
 	}
 

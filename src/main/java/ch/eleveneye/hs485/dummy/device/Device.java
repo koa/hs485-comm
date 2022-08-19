@@ -14,7 +14,7 @@ import ch.eleveneye.hs485.api.data.TFSValue;
 
 /**
  * Abstract Dummy-Device for Test
- * 
+ *
  */
 public abstract class Device {
 	protected byte[]									actor;
@@ -34,7 +34,7 @@ public abstract class Device {
 
 	/**
 	 * read current Value of a Actor
-	 * 
+	 *
 	 * @param actorNr
 	 *          Index of Actor
 	 * @return currentValue of Actor
@@ -45,14 +45,14 @@ public abstract class Device {
 
 	/**
 	 * Reads HW-Version of current device
-	 * 
+	 *
 	 * @return
 	 */
 	public abstract HwVer readHwVer();
 
 	/**
 	 * Reads the Brightness from Lux-Sensor
-	 * 
+	 *
 	 * @return Brightness
 	 */
 	public int readLux() {
@@ -61,7 +61,7 @@ public abstract class Device {
 
 	/**
 	 * Reads config-Data from Module
-	 * 
+	 *
 	 * @param count
 	 *          count of Bytes
 	 * @return Data
@@ -72,7 +72,7 @@ public abstract class Device {
 
 	/**
 	 * Reads Firmware-Version from dummy-Device
-	 * 
+	 *
 	 * @return Firmware-Version
 	 */
 
@@ -80,11 +80,39 @@ public abstract class Device {
 
 	/**
 	 * Reads temperature and humidity from TFS-Sensor
-	 * 
+	 *
 	 * @return Values
 	 */
 	public TFSValue readTemp() {
 		return null;
+	}
+
+	private void scheduleNextBroadcast(final int keyNr) {
+		final int time;
+		final TimeUnit waitTimeUnit;
+		if (keyPressed[keyNr]) {
+			time = (int) (Math.random() * 60 + 10);
+			waitTimeUnit = TimeUnit.SECONDS;
+		} else {
+			time = (int) (Math.random() * 100 + 5);
+			waitTimeUnit = TimeUnit.MILLISECONDS;
+		}
+
+		executorService.schedule(new Runnable() {
+
+			public void run() {
+				final KeyMessage keyMessage = new KeyMessage();
+				keyMessage.setSourceAddress(address);
+				keyMessage.setTargetAddress(-1);
+				keyMessage.setSourceSensor(0);
+				keyMessage.setTargetActor(0);
+				keyMessage.setKeyEventType(keyPressed[keyNr] ? KeyEventType.RELEASE : KeyEventType.PRESS);
+				keyMessage.setKeyType(KeyType.TOGGLE);
+				scheduleNextBroadcast(keyNr);
+				keyPressed[keyNr] = !keyPressed[keyNr];
+				handler.handleMessage(keyMessage);
+			}
+		}, time, waitTimeUnit);
 	}
 
 	public void setExecutorService(final ScheduledExecutorService executorService) {
@@ -113,34 +141,5 @@ public abstract class Device {
 
 	public synchronized void writeEEPROM(final int memOffset, final byte[] data2, final int dataOffset, final int length) {
 		System.arraycopy(data2, dataOffset, data, memOffset, length);
-	}
-
-	private void scheduleNextBroadcast(final int keyNr) {
-		final int time;
-		final TimeUnit waitTimeUnit;
-		if (keyPressed[keyNr]) {
-			time = (int) (Math.random() * 60 + 10);
-			waitTimeUnit = TimeUnit.SECONDS;
-		} else {
-			time = (int) (Math.random() * 100 + 5);
-			waitTimeUnit = TimeUnit.MILLISECONDS;
-		}
-
-		executorService.schedule(new Runnable() {
-
-			@Override
-			public void run() {
-				final KeyMessage keyMessage = new KeyMessage();
-				keyMessage.setSourceAddress(address);
-				keyMessage.setTargetAddress(-1);
-				keyMessage.setSourceSensor(0);
-				keyMessage.setTargetActor(0);
-				keyMessage.setKeyEventType(keyPressed[keyNr] ? KeyEventType.RELEASE : KeyEventType.PRESS);
-				keyMessage.setKeyType(KeyType.TOGGLE);
-				scheduleNextBroadcast(keyNr);
-				keyPressed[keyNr] = !keyPressed[keyNr];
-				handler.handleMessage(keyMessage);
-			}
-		}, time, waitTimeUnit);
 	}
 }

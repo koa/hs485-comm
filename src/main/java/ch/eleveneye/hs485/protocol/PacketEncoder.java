@@ -21,7 +21,6 @@ public class PacketEncoder implements Closeable {
 		this.decoder = decoder;
 	}
 
-	@Override
 	public void close() throws IOException {
 		outStream.close();
 	}

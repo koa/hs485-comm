@@ -17,7 +17,11 @@ import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
 public class PacketDecoder implements Closeable {
 	class ReaderThread extends Thread {
 
-		private boolean	running	= true;
+		private boolean running = true;
+
+		synchronized boolean isRunning() {
+			return running;
+		}
 
 		@Override
 		public void run() {
@@ -115,17 +119,13 @@ public class PacketDecoder implements Closeable {
 				}
 		}
 
-		synchronized boolean isRunning() {
-			return running;
-		}
-
 		synchronized void setRunning(final boolean running) {
 			this.running = running;
 		}
 
 	}
 
-	private static final Logger	log	= LoggerFactory.getLogger(PacketDecoder.class);
+	private static final Logger log = LoggerFactory.getLogger(PacketDecoder.class);
 
 	static private boolean controlHasSourceAddr(final byte currentB) {
 		return (currentB & 0x08) == 8;
@@ -175,7 +175,6 @@ public class PacketDecoder implements Closeable {
 		}
 	}
 
-	@Override
 	public void close() throws IOException {
 		myThread.setRunning(false);
 		inStream.close();
@@ -183,23 +182,6 @@ public class PacketDecoder implements Closeable {
 
 	public long getLastPacketReceived() {
 		return lastPacketReceived.get();
-	}
-
-	public boolean isBusFree() {
-		final int randomDelay = 4;
-		return !isReceivingPacket() && getLastPacketReceived() + randomDelay < System.currentTimeMillis();
-	}
-
-	public synchronized boolean isReceivingPacket() {
-		return receivingPacket;
-	}
-
-	public void setLastPacketReceived(final long lastPacketReceived) {
-		this.lastPacketReceived.set(lastPacketReceived);
-	}
-
-	public synchronized void setReceivingPacket(final boolean receivingPacket) {
-		this.receivingPacket = receivingPacket;
 	}
 
 	void handlePacket(final byte[] buffer, final int readPtr, final int lengthPos, final boolean shortPacket) {
@@ -299,5 +281,22 @@ public class PacketDecoder implements Closeable {
 					listener.handleLongPacket(packet);
 			}
 		}
+	}
+
+	public boolean isBusFree() {
+		final int randomDelay = 4;
+		return !isReceivingPacket() && getLastPacketReceived() + randomDelay < System.currentTimeMillis();
+	}
+
+	public synchronized boolean isReceivingPacket() {
+		return receivingPacket;
+	}
+
+	public void setLastPacketReceived(final long lastPacketReceived) {
+		this.lastPacketReceived.set(lastPacketReceived);
+	}
+
+	public synchronized void setReceivingPacket(final boolean receivingPacket) {
+		this.receivingPacket = receivingPacket;
 	}
 }

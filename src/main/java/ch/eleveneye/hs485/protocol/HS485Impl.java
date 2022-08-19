@@ -1,10 +1,5 @@
 package ch.eleveneye.hs485.protocol;
 
-import gnu.io.RXTXCommDriver;
-import gnu.io.RXTXPort;
-import gnu.io.SerialPort;
-import gnu.io.UnsupportedCommOperationException;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,17 +28,20 @@ import ch.eleveneye.hs485.api.data.KeyMessage;
 import ch.eleveneye.hs485.api.data.SwVer;
 import ch.eleveneye.hs485.api.data.TFSValue;
 import ch.eleveneye.hs485.protocol.handler.RawDataHandler;
+import gnu.io.RXTXCommDriver;
+import gnu.io.RXTXPort;
+import gnu.io.SerialPort;
+import gnu.io.UnsupportedCommOperationException;
 
 @Service
 public class HS485Impl implements HS485 {
 	private class AckRunnable implements Runnable {
-		IMessage	origMessage;
+		IMessage origMessage;
 
 		public AckRunnable(final IMessage origMessage) {
 			this.origMessage = origMessage;
 		}
 
-		@Override
 		public void run() {
 			try {
 				sendAck(origMessage);
@@ -57,7 +55,15 @@ public class HS485Impl implements HS485 {
 
 	private class DataHandler implements RawDataHandler {
 
-		@Override
+		private void doAck(final IMessage iMsg) {
+			try {
+				sendAck(iMsg);
+			} catch (final IOException e) {
+				log.warn("Konnte Ack nicht schicken", e);
+			}
+			// executorService.execute(new AckRunnable(iMsg));
+		}
+
 		public void handleClientList(final List<Integer> clients) {
 			synchronized (clientListMutex) {
 				clientList = clients;
@@ -66,7 +72,6 @@ public class HS485Impl implements HS485 {
 
 		}
 
-		@Override
 		public void handleLongPacket(final HS485Message packet) {
 
 			if (packet instanceof IMessage) {
@@ -76,7 +81,7 @@ public class HS485Impl implements HS485 {
 					if (packet.getTargetAddress() == ownAddress)
 						doAck(iMsg);
 					executorService.execute(new Runnable() {
-						@Override
+
 						public void run() {
 							final KeyMessage keyMessage = iMsg.buildKeyMessage();
 							final EventIndex handlerIndex = new EventIndex(keyMessage.getSourceAddress(), keyMessage.getSourceSensor());
@@ -110,15 +115,6 @@ public class HS485Impl implements HS485 {
 				final BlockingQueue<ACKMessage> queue = receivedAckMessages.get(index);
 				queue.add(ackPacket);
 			}
-		}
-
-		private void doAck(final IMessage iMsg) {
-			try {
-				sendAck(iMsg);
-			} catch (final IOException e) {
-				log.warn("Konnte Ack nicht schicken", e);
-			}
-			// executorService.execute(new AckRunnable(iMsg));
 		}
 	}
 
@@ -163,12 +159,10 @@ public class HS485Impl implements HS485 {
 		init(port, myAddress);
 	}
 
-	@Override
 	public void addBroadcastHandler(final MessageHandler handler) {
 		broadcastHandlers.add(handler);
 	}
 
-	@Override
 	public void addKeyHandler(final int sourceAddress, final byte sensorNr, final MessageHandler handler) throws IOException {
 		final EventIndex eventIndex = new EventIndex(sourceAddress, sensorNr);
 		if (handler != null)
@@ -178,7 +172,6 @@ public class HS485Impl implements HS485 {
 	}
 
 	@PreDestroy
-	@Override
 	public void close() throws IOException {
 		decoder.close();
 		encoder.close();
@@ -186,220 +179,20 @@ public class HS485Impl implements HS485 {
 		log.info("Bus-Communication closed");
 	}
 
+	@Override
+	protected void finalize() throws Throwable {
+		super.finalize();
+		commPort.close();
+	}
+
 	public void handleBroadcast(final KeyMessage keyMessage) {
 		executorService.execute(new Runnable() {
 
-			@Override
 			public void run() {
 				for (final MessageHandler handler : broadcastHandlers)
 					handler.handleMessage(keyMessage);
 			}
 		});
-	}
-
-	@Override
-	public List<Integer> listClients() throws IOException {
-		synchronized (readClientListMutex) {
-
-			synchronized (clientListMutex) {
-				if (lastClientListUpdate + 60 * 1000 > System.currentTimeMillis())
-					return clientList;
-				else
-					clientList = null;
-			}
-			encoder.initiateDiscovering();
-			while (true) {
-				synchronized (clientListMutex) {
-					if (clientList != null)
-						return clientList;
-				}
-				try {
-					Thread.sleep(100);
-				} catch (final InterruptedException e) {
-					synchronized (clientListMutex) {
-						return new ArrayList<Integer>(clientList);
-					}
-				}
-			}
-		}
-	}
-
-	@Override
-	public int[] listOwnAddresse() {
-		return new int[] { ownAddress };
-	}
-
-	@Override
-	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
-		final IMessage msg = prepareIMessage(moduleAddress);
-		final byte[] data = new byte[] { 'S', actor };
-		msg.setData(data);
-		final IMessage answer = sendAndWaitForAnswer(msg);
-
-		return answer.getData()[1];
-
-	}
-
-	@Override
-	public HwVer readHwVer(final int address) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'h' });
-		final IMessage answer = sendAndWaitForAnswer(msg);
-
-		final byte[] answerData = answer.getData();
-		return new HwVer(answerData[0], answerData[1]);
-	}
-
-	@Override
-	public int readLux(final int address) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'L' });
-		final IMessage answer = sendAndWaitForAnswer(msg);
-
-		final byte[] answerData = answer.getData();
-		return (answerData[0] & 0xff) << 24 | (answerData[1] & 0xff) << 16 | (answerData[2] & 0xff) << 8 | answerData[3] & 0xff;
-	}
-
-	@Override
-	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
-		final byte[] ret = new byte[count];
-		int partOffset = 0;
-		while (partOffset < count) {
-			int partSize = count - partOffset;
-			if (partSize > 32)
-				partSize = 32;
-			readEEPROMRaw(address, partOffset, ret, partOffset, partSize);
-			partOffset += partSize;
-		}
-		return ret;
-	}
-
-	@Override
-	public SwVer readSwVer(final int address) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'v' });
-		final IMessage answer = sendAndWaitForAnswer(msg);
-
-		final byte[] answerData = answer.getData();
-		if (answerData.length < 1)
-			return new SwVer((byte) -1, (byte) 0);
-		if (answerData.length < 2)
-			return new SwVer(answerData[0], (byte) 0);
-
-		return new SwVer(answerData[0], answerData[1]);
-	}
-
-	@Override
-	public TFSValue readTemp(final int address) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'F' });
-		final IMessage answer = sendAndWaitForAnswer(msg);
-
-		final byte[] answerData = answer.getData();
-		final TFSValue value = new TFSValue(answerData);
-		if (value.getTemperatur() == 0x8002)
-			throw new HardwareError("Sensor " + Integer.toHexString(address) + " defekt");
-		return value;
-	}
-
-	public void registerEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
-		final IMessage msg = prepareIMessage(moduleAddress);
-		final byte[] data = new byte[] { 'q', sensor, actor };
-		msg.setData(data);
-		sendAndWaitForAck(msg);
-	}
-
-	@Override
-	public void reloadModule(final int address) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { 'C' });
-		sendAndWaitForAck(msg);
-	}
-
-	@Override
-	public void removeBroadcastHandler(final MessageHandler broadcastHandler) {
-		if (broadcastHandler != null)
-			broadcastHandlers.remove(broadcastHandler);
-	}
-
-	@Override
-	public void removeHandlers() {
-		keyEventHandlers.clear();
-		broadcastHandlers.clear();
-	}
-
-	@Override
-	public void resetModule(final int address) throws IOException {
-		final IMessage msg = prepareIMessage(address);
-		msg.setData(new byte[] { '!', '!' });
-		sendAndWaitForAck(msg);
-	}
-
-	@Override
-	public void sendKeyMessage(final KeyMessage keyMessage) throws IOException {
-		final IMessage msg = prepareIMessage(keyMessage.getTargetAddress());
-		byte eventByte = 0;
-		switch (keyMessage.getKeyEventType()) {
-		case PRESS:
-			break;
-		case HOLD:
-			eventByte += 1;
-			break;
-		case RELEASE:
-			eventByte += 2;
-			break;
-		}
-		eventByte += (keyMessage.getHitCount() & 0x3) << 2;
-		switch (keyMessage.getKeyType()) {
-		case TOGGLE:
-			break;
-		case UP:
-			eventByte += 1 << 4;
-			break;
-		case DOWN:
-			eventByte += 2 << 4;
-			break;
-		}
-		msg.setData(new byte[] { 'K', (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor(), eventByte });
-		sendAndWaitForAck(msg);
-	}
-
-	public void setExecutorService(final ExecutorService executorService) {
-		this.executorService = executorService;
-	}
-
-	public void unRegisterEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
-		final IMessage msg = prepareIMessage(moduleAddress);
-		final byte[] data = new byte[] { 'c', sensor, actor };
-		msg.setData(data);
-		sendAndWaitForAck(msg);
-	}
-
-	@Override
-	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
-		final IMessage msg = prepareIMessage(moduleAddress);
-		final byte[] data = new byte[] { 's', 0, actor, action };
-		msg.setData(data);
-		sendAndWaitForAck(msg);
-	}
-
-	@Override
-	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
-			throws IOException {
-		int partOffset = 0;
-		while (partOffset < length) {
-			int partSize = length - partOffset;
-			if (partSize > 32)
-				partSize = 32;
-			writeModuleEEPROMRaw(deviceAddress, memOffset + partOffset, data, dataOffset + partOffset, partSize);
-			partOffset += partSize;
-		}
-	}
-
-	@Override
-	protected void finalize() throws Throwable {
-		super.finalize();
-		commPort.close();
 	}
 
 	private void init(final String port, final int myAddress) throws UnsupportedCommOperationException, IOException {
@@ -426,6 +219,36 @@ public class HS485Impl implements HS485 {
 		decoder.addDataHandler(new DataHandler());
 	}
 
+	public List<Integer> listClients() throws IOException {
+		synchronized (readClientListMutex) {
+
+			synchronized (clientListMutex) {
+				if (lastClientListUpdate + 60 * 1000 > System.currentTimeMillis())
+					return clientList;
+				else
+					clientList = null;
+			}
+			encoder.initiateDiscovering();
+			while (true) {
+				synchronized (clientListMutex) {
+					if (clientList != null)
+						return clientList;
+				}
+				try {
+					Thread.sleep(100);
+				} catch (final InterruptedException e) {
+					synchronized (clientListMutex) {
+						return new ArrayList<Integer>(clientList);
+					}
+				}
+			}
+		}
+	}
+
+	public int[] listOwnAddresse() {
+		return new int[] { ownAddress };
+	}
+
 	private IMessage prepareIMessage(final int moduleAddress) {
 		final IMessage msg = new IMessage();
 		msg.setSourceAddress(ownAddress);
@@ -439,12 +262,108 @@ public class HS485Impl implements HS485 {
 		return msg;
 	}
 
+	public byte readActor(final int moduleAddress, final byte actor) throws IOException {
+		final IMessage msg = prepareIMessage(moduleAddress);
+		final byte[] data = new byte[] { 'S', actor };
+		msg.setData(data);
+		final IMessage answer = sendAndWaitForAnswer(msg);
+
+		return answer.getData()[1];
+
+	}
+
 	private void readEEPROMRaw(final int address, final int offset, final byte[] data, final int dataOffset, final int dataCount) throws IOException {
 		final IMessage msg = prepareIMessage(address);
 		msg.setData(new byte[] { 'R', (byte) (offset >> 8 & 0xff), (byte) (offset & 0xff), (byte) (dataCount & 0xff) });
 		final IMessage answer = sendAndWaitForAnswer(msg);
 		assert answer.getData().length == dataCount;
 		System.arraycopy(answer.getData(), 0, data, dataOffset, dataCount);
+	}
+
+	public HwVer readHwVer(final int address) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { 'h' });
+		final IMessage answer = sendAndWaitForAnswer(msg);
+
+		final byte[] answerData = answer.getData();
+		return new HwVer(answerData[0], answerData[1]);
+	}
+
+	public int readLux(final int address) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { 'L' });
+		final IMessage answer = sendAndWaitForAnswer(msg);
+
+		final byte[] answerData = answer.getData();
+		return (answerData[0] & 0xff) << 24 | (answerData[1] & 0xff) << 16 | (answerData[2] & 0xff) << 8 | answerData[3] & 0xff;
+	}
+
+	public byte[] readModuleEEPROM(final int address, final int count) throws IOException {
+		final byte[] ret = new byte[count];
+		int partOffset = 0;
+		while (partOffset < count) {
+			int partSize = count - partOffset;
+			if (partSize > 32)
+				partSize = 32;
+			readEEPROMRaw(address, partOffset, ret, partOffset, partSize);
+			partOffset += partSize;
+		}
+		return ret;
+	}
+
+	public SwVer readSwVer(final int address) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { 'v' });
+		final IMessage answer = sendAndWaitForAnswer(msg);
+
+		final byte[] answerData = answer.getData();
+		if (answerData.length < 1)
+			return new SwVer((byte) -1, (byte) 0);
+		if (answerData.length < 2)
+			return new SwVer(answerData[0], (byte) 0);
+
+		return new SwVer(answerData[0], answerData[1]);
+	}
+
+	public TFSValue readTemp(final int address) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { 'F' });
+		final IMessage answer = sendAndWaitForAnswer(msg);
+
+		final byte[] answerData = answer.getData();
+		final TFSValue value = new TFSValue(answerData);
+		if (value.getTemperatur() == 0x8002)
+			throw new HardwareError("Sensor " + Integer.toHexString(address) + " defekt");
+		return value;
+	}
+
+	public void registerEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
+		final IMessage msg = prepareIMessage(moduleAddress);
+		final byte[] data = new byte[] { 'q', sensor, actor };
+		msg.setData(data);
+		sendAndWaitForAck(msg);
+	}
+
+	public void reloadModule(final int address) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { 'C' });
+		sendAndWaitForAck(msg);
+	}
+
+	public void removeBroadcastHandler(final MessageHandler broadcastHandler) {
+		if (broadcastHandler != null)
+			broadcastHandlers.remove(broadcastHandler);
+	}
+
+	public void removeHandlers() {
+		keyEventHandlers.clear();
+		broadcastHandlers.clear();
+	}
+
+	public void resetModule(final int address) throws IOException {
+		final IMessage msg = prepareIMessage(address);
+		msg.setData(new byte[] { '!', '!' });
+		sendAndWaitForAck(msg);
 	}
 
 	private void sendAck(final IMessage answer) throws IOException {
@@ -516,6 +435,64 @@ public class HS485Impl implements HS485 {
 			}
 		}
 		throw new TimeoutException("Expected Answer not requested");
+	}
+
+	public void sendKeyMessage(final KeyMessage keyMessage) throws IOException {
+		final IMessage msg = prepareIMessage(keyMessage.getTargetAddress());
+		byte eventByte = 0;
+		switch (keyMessage.getKeyEventType()) {
+		case PRESS:
+			break;
+		case HOLD:
+			eventByte += 1;
+			break;
+		case RELEASE:
+			eventByte += 2;
+			break;
+		}
+		eventByte += (keyMessage.getHitCount() & 0x3) << 2;
+		switch (keyMessage.getKeyType()) {
+		case TOGGLE:
+			break;
+		case UP:
+			eventByte += 1 << 4;
+			break;
+		case DOWN:
+			eventByte += 2 << 4;
+			break;
+		}
+		msg.setData(new byte[] { 'K', (byte) keyMessage.getSourceSensor(), (byte) keyMessage.getTargetActor(), eventByte });
+		sendAndWaitForAck(msg);
+	}
+
+	public void setExecutorService(final ExecutorService executorService) {
+		this.executorService = executorService;
+	}
+
+	public void unRegisterEventAt(final int moduleAddress, final byte sensor, final byte actor) throws IOException {
+		final IMessage msg = prepareIMessage(moduleAddress);
+		final byte[] data = new byte[] { 'c', sensor, actor };
+		msg.setData(data);
+		sendAndWaitForAck(msg);
+	}
+
+	public void writeActor(final int moduleAddress, final byte actor, final byte action) throws IOException {
+		final IMessage msg = prepareIMessage(moduleAddress);
+		final byte[] data = new byte[] { 's', 0, actor, action };
+		msg.setData(data);
+		sendAndWaitForAck(msg);
+	}
+
+	public void writeModuleEEPROM(final int deviceAddress, final int memOffset, final byte[] data, final int dataOffset, final int length)
+			throws IOException {
+		int partOffset = 0;
+		while (partOffset < length) {
+			int partSize = length - partOffset;
+			if (partSize > 32)
+				partSize = 32;
+			writeModuleEEPROMRaw(deviceAddress, memOffset + partOffset, data, dataOffset + partOffset, partSize);
+			partOffset += partSize;
+		}
 	}
 
 	private void writeModuleEEPROMRaw(final int deviceAddress, final int offset, final byte[] data, final int dataOffset, final int dataCount)
